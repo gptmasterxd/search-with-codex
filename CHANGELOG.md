@@ -45,6 +45,8 @@
 - Prevented aggregators, mirrors, and compatibility indexes from inheriting the primary status, publisher, or grade of underlying material; attributed primary-result claims now require the strongest reachable canonical record.
 - Added breadth-plus-authority coverage for technical package ecosystems and version-specific first-party anchors for exact compatibility claims.
 - Added a final evidence-preserving editorial pass for duplicated sections, inconsistent terminology, malformed units, and language errors.
+- Required current medical freshness sweeps to batch intervention aliases and preserve both recent positive and null direct studies, without substituting registry linkage for direct-study retrieval.
+- Added official NCBI E-utilities/PMC structured-data fallback before closing a blocked PubMed record as abstract- or result-inaccessible.
 
 ## 3.1.0 — 2026-08-06
 

@@ -52,6 +52,8 @@ class PackageTests(unittest.TestCase):
             "aggregator cannot inherit",
             "version-specific first-party",
             "reread both user-facing files once",
+            "NCBI E-utilities",
+            "newest credible positive and null direct studies",
         ):
             self.assertIn(phrase, skill)
         self.assertIn("do not stop at the first systematic review", academic)

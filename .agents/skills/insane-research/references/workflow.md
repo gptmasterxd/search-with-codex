@@ -18,8 +18,8 @@
 - [ ] Defeated claims identify separate `counter_source_urls`; supporting and counter-evidence are not conflated.
 - [ ] Primary-source attempts are documented.
 - [ ] Search dates and content validity dates are distinct.
-- [ ] Decision-changing recent primary identifiers were opened and checked for exact title, type, date, and result status; protocol/registry records were reconciled with later publications.
-- [ ] Current medical comparisons used a date-bounded PICO/design bibliographic query, audited overlapping reviews for contrary syntheses, and used a registry/publication linkage route.
+- [ ] Decision-changing recent primary identifiers were opened and checked for exact title, type, date, and result status; blocked PubMed HTML used an official NCBI machine-readable route before closure, and protocol/registry records were reconciled with later publications.
+- [ ] Current medical comparisons used a date-bounded PICO/design bibliographic query with full names/acronyms/delivery aliases, preserved recent positive and null direct studies, audited overlapping reviews for contrary syntheses, and used a separate registry/publication linkage route.
 - [ ] `search_count` counts tool invocations, while `queries_run` lists the exact literal submitted query strings rather than category labels.
 - [ ] Aggregators and mirrors are classified as the inspected artifacts and replaced by canonical records for attributed primary-result claims whenever reachable.
 - [ ] Broad technical compatibility claims use a labeled breadth index plus version-specific first-party checks for representative dependencies.

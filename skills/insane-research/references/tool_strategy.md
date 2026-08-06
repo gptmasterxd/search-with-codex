@@ -44,11 +44,17 @@ Open its canonical record and verify the exact title, identifier, document or pu
 type, date, and result status. For medical literature, reconcile PMID, DOI, and trial
 registry identifiers; inspect the PubMed or publisher abstract sections; and search for a
 result publication before describing a registry entry or earlier protocol as unpublished.
-Record snippet-only access as `partial`, not `ok`.
+If PubMed HTML is blocked, try an official NCBI E-utilities or PMC machine-readable
+representation before declaring the abstract or results inaccessible; retain the canonical
+PubMed URL and record the actual API access method. Record snippet-only access as `partial`,
+not `ok`.
 
 For a current medical comparison, use at least one date-bounded bibliographic query that
 combines the population, both interventions, and randomized or systematic-review design,
-plus one registry/publication or citation-linkage route. Within that bibliographic call,
+plus one registry/publication or citation-linkage route. Batch full intervention names,
+acronyms, and delivery aliases from the question and located records, and preserve the
+newest credible positive and null direct studies when both are decision-changing. A
+registry-linkage query does not replace this direct-study freshness sweep. Within that bibliographic call,
 audit overlapping systematic reviews by following related/citing records or searching the
 same comparator and period for different search cutoffs, sample sizes, methods, or
 conclusions. Preserve the strongest credible positive and null or harmful synthesis rather
