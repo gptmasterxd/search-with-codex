@@ -48,6 +48,13 @@ TOOL_ITEM_TYPES = {
     "mcp_tool_call",
     "web_search",
 }
+JUDGE_DIMENSIONS = (
+    "correctness",
+    "completeness",
+    "evidence_quality",
+    "uncertainty_handling",
+    "decision_usefulness",
+)
 NONFATAL_DIAGNOSTICS = (
     "Skill descriptions were shortened to fit the 2% skills context budget.",
 )
@@ -869,6 +876,14 @@ Prioritize, in order:
 4. honest treatment of counter-evidence, uncertainty, and unresolved points;
 5. decision usefulness and readable structure.
 
+Score every dimension and `overall` on the same scale:
+- 1 = unacceptable
+- 2 = weak
+- 3 = adequate
+- 4 = strong
+- 5 = excellent
+
+The overall score must be a holistic 1-to-5 quality score consistent with the dimension scores.
 Do not award points merely for being longer or for claiming that an audit passed. Treat the
 deterministic summaries as secondary evidence. If a citation cannot be checked from the supplied
 material, do not assume it is valid. Be decisive, but use TIE when genuinely equivalent.
@@ -891,6 +906,34 @@ OUTPUT B
 DETERMINISTIC SUMMARY B
 {json.dumps(summaries['B'], ensure_ascii=False)}
 """
+
+
+def judge_score_contract_valid(comparison: dict[str, Any]) -> bool:
+    scores = comparison.get("scores")
+    if not isinstance(scores, dict):
+        return False
+    for label in ("A", "B"):
+        score = scores.get(label)
+        if not isinstance(score, dict):
+            return False
+        dimensions = [score.get(name) for name in JUDGE_DIMENSIONS]
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not 1 <= value <= 5
+            for value in dimensions
+        ):
+            return False
+        overall = score.get("overall")
+        if (
+            isinstance(overall, bool)
+            or not isinstance(overall, (int, float))
+            or not 1 <= float(overall) <= 5
+        ):
+            return False
+        if abs(float(overall) - statistics.mean(dimensions)) > 1:
+            return False
+    return True
 
 
 def judge_one(
@@ -956,6 +999,7 @@ def judge_one(
         "timed_out": timed_out,
         "duration_seconds": round(duration, 6),
         "comparison": comparison,
+        "score_contract_valid": judge_score_contract_valid(comparison),
         "transcript_metrics": parse_jsonl_metrics(transcript_path),
     }
     write_json(judge_dir / "unblinded.json", result)
@@ -1008,6 +1052,7 @@ def judge_benchmark(args: argparse.Namespace) -> Path:
         if result.get("error")
         or result.get("returncode") != 0
         or result.get("winner") not in {"A", "B", "TIE"}
+        or result.get("score_contract_valid") is not True
     ]
     if failures:
         raise BenchmarkError(

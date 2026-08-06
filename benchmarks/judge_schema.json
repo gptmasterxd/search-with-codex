@@ -52,34 +52,40 @@
       ],
       "properties": {
         "correctness": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
           "type": "integer",
           "minimum": 1,
           "maximum": 5
         },
         "completeness": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
           "type": "integer",
           "minimum": 1,
           "maximum": 5
         },
         "evidence_quality": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
           "type": "integer",
           "minimum": 1,
           "maximum": 5
         },
         "uncertainty_handling": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
           "type": "integer",
           "minimum": 1,
           "maximum": 5
         },
         "decision_usefulness": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
           "type": "integer",
           "minimum": 1,
           "maximum": 5
         },
         "overall": {
+          "description": "Overall quality on the same 1-to-5 scale as the dimensions",
           "type": "number",
           "minimum": 1,
-          "maximum": 10
+          "maximum": 5
         },
         "strengths": {
           "type": "array",

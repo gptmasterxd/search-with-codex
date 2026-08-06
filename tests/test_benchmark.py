@@ -77,6 +77,46 @@ class BenchmarkHarnessTests(unittest.TestCase):
         self.assertEqual(result["mean"], 2.0)
         self.assertAlmostEqual(result["stddev"], 0.816497)
 
+    def test_judge_uses_one_consistent_five_point_scale(self) -> None:
+        schema = json.loads(
+            (ROOT / "benchmarks" / "judge_schema.json").read_text(encoding="utf-8")
+        )
+        score = schema["$defs"]["outputScore"]["properties"]
+        self.assertEqual(score["overall"]["minimum"], 1)
+        self.assertEqual(score["overall"]["maximum"], 5)
+        for name in (
+            "correctness",
+            "completeness",
+            "evidence_quality",
+            "uncertainty_handling",
+            "decision_usefulness",
+        ):
+            self.assertEqual(score[name]["minimum"], 1)
+            self.assertEqual(score[name]["maximum"], 5)
+
+    def test_judge_score_contract_rejects_inconsistent_overall(self) -> None:
+        dimensions = {
+            "correctness": 2,
+            "completeness": 2,
+            "evidence_quality": 2,
+            "uncertainty_handling": 2,
+            "decision_usefulness": 2,
+        }
+        valid = {
+            "scores": {
+                "A": {**dimensions, "overall": 2.5},
+                "B": {**dimensions, "overall": 2},
+            }
+        }
+        invalid = {
+            "scores": {
+                "A": {**dimensions, "overall": 5},
+                "B": {**dimensions, "overall": 2},
+            }
+        }
+        self.assertTrue(benchmark.judge_score_contract_valid(valid))
+        self.assertFalse(benchmark.judge_score_contract_valid(invalid))
+
     def test_primary_report_excludes_internal_audit_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             outputs = Path(temp)

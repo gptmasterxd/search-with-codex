@@ -48,7 +48,8 @@ Each run stores:
 
 The judge randomizes A/B labels per evaluation and emits structured blind
 scores for correctness, completeness, evidence quality, uncertainty handling,
-and decision usefulness. `report` unblinds only after judging and creates
+decision usefulness, and overall quality on one consistent 1-to-5 scale.
+`report` unblinds only after judging and creates
 `benchmark.json` plus `benchmark.md`.
 
 ## Review viewer
