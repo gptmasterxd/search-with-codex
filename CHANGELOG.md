@@ -21,6 +21,8 @@
 - Reports use linked source markers and omit self-certifying audit language from substantive findings.
 - Session schema is now version 3; legacy aggregate agent returns remain supported.
 - Strict synthesized high-risk claims require two independent A/B-grade families; a directly inspected authoritative source can verify only a visibly attributed, source-bound statement.
+- Current technical adoption questions remain standard mode unless they are safety-, security-, financial-, or rights-critical; strict medical and legal work is unchanged.
+- Per-axis returns default to six sources and four material claims, and reports use a decision-critical evidence subset instead of replaying the complete ledger.
 
 ### Fixed
 
@@ -29,6 +31,8 @@
 - Required the research-plan template to be read before patching.
 - Enumerated valid claim types and clarified unresolved-claim placement to prevent avoidable merge warnings and audit retries.
 - Scoped unresolved-claim fuzzy matching to local paragraphs so unrelated terms across a report cannot create a false leakage failure.
+- Preserved accurately attributed study or authority results when broader evidence conflicts; disagreement now constrains the synthesized conclusion instead of erasing what each source reported.
+- Required current medical comparison searches to include a date-bounded bibliographic route and registry/publication linkage, and required intervening legal measures to state their operative effect.
 
 ## 3.1.0 — 2026-08-06
 

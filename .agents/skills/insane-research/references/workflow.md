@@ -19,10 +19,13 @@
 - [ ] Primary-source attempts are documented.
 - [ ] Search dates and content validity dates are distinct.
 - [ ] Decision-changing recent primary identifiers were opened and checked for exact title, type, date, and result status; protocol/registry records were reconciled with later publications.
+- [ ] Current medical comparisons used a date-bounded PICO/design bibliographic query and a registry/publication linkage route.
 - [ ] `search_count` counts tool invocations, while `queries_run` lists submitted query strings.
 - [ ] Source families identify duplicated underlying evidence.
 - [ ] Every claim declares `claim_scope`; attributed text visibly names its authority and synthesized conclusions retain independent evidence.
 - [ ] Dead ends and access limits are recorded.
+- [ ] Every explicit research question/outcome has usable evidence or a named gap; remaining budget was used only for a missing material item.
+- [ ] Intervening legal or technical changes identify the operative provision and effect, not merely a newer document number.
 
 ## Merge and verification
 
@@ -35,6 +38,7 @@
 - [ ] Evidence was not edited after validation; if it was, `validate` was rerun.
 - [ ] Report body uses verified high-risk claims only.
 - [ ] Attributed claims remain visibly attributed and are not generalized beyond the inspected source.
+- [ ] The evidence table contains only a decision-critical subset and does not duplicate the complete internal ledger.
 
 ## Finalization
 

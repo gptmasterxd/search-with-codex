@@ -46,6 +46,13 @@ registry identifiers; inspect the PubMed or publisher abstract sections; and sea
 result publication before describing a registry entry or earlier protocol as unpublished.
 Record snippet-only access as `partial`, not `ok`.
 
+For a current medical comparison, use at least one date-bounded bibliographic query that
+combines the population, both interventions, and randomized or systematic-review design,
+plus one registry/publication or citation-linkage route. For a legal amendment or
+implementing measure, inspect the operative provision and state exactly what it changes,
+when it takes effect, and whether it materially changes the requested answer. A newer
+document's existence alone is not evidence that the controlling rule changed.
+
 `search_count` means the number of actual search or discovery tool invocations. A batched call counts once. Do not count returned hits, snippets, opened pages, downloaded documents, or individual query objects inside a batch as separate calls. `queries_run` still lists every query string actually submitted.
 
 ## Access failures

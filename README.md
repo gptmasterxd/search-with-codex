@@ -22,6 +22,8 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Current medical, legal, regulatory, standards, and fast-moving technical work includes a direct-primary freshness sweep over the cutoff date and preceding 24 months.
 - Claims distinguish source-attributed facts from synthesized conclusions. A directly inspected A/B-grade authoritative origin can verify only a visibly attributed statement about what it says; synthesized strict conclusions still require two independent A/B-grade families.
 - Recent decision-changing studies and official records must be opened by canonical identifier and checked for exact title, type, date, and result status, preventing protocol/result misclassification.
+- Current technical adoption work stays in standard mode unless safety, security, finance, or fundamental rights make strict mode necessary. Per-axis returns are capped more tightly, and reports show a decision-critical evidence subset instead of dumping the complete ledger.
+- Conflicting studies retain their accurately attributed results; only the cross-study synthesis remains unresolved. Legal freshness checks must identify the exact amended provision and its material effect.
 - Standard mode starts with 2–3 axes and at most three research agents; strict mode starts with 3–4 axes and at most four. Per-axis search and return budgets are bounded.
 - Merge review starts from compact warning output, and `researchctl brief` supplies one synthesis map instead of replaying the complete registry and ledger into model context.
 - The plugin manifest now follows the validated Codex author and interface schema.

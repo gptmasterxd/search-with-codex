@@ -32,8 +32,8 @@ If `doctor` fails, report the exact failing check. Do not continue with a fabric
 
 ## Invocation modes
 
-- **Standard:** most research. A synthesized claim requires two independent source families.
-- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. A synthesized strict high-risk claim requires two independent A/B-grade source families, including an authoritative origin.
+- **Standard:** most research, including current technical adoption questions when they are not safety-, security-, financial-, or rights-critical. Add a freshness sweep without escalating the whole session. A synthesized claim requires two independent source families.
+- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, security-critical, or fundamental-rights claims, and whenever the user asks for strict verification. A synthesized strict high-risk claim requires two independent A/B-grade source families, including an authoritative origin.
 - **Attributed fact:** a claim narrowly framed as what a named statute, specification, official record, study, or dataset directly says may use `claim_scope: attributed`. It can pass with one directly inspected A/B-grade authoritative origin after a counter-search. Preserve the attribution in the report; never generalize a source-reported result into a real-world effect or legal interpretation.
 - **Resume:** when a session path or session ID is supplied, read its `state.json`, artifacts, source registry, and existing outputs. Continue from the first incomplete phase rather than restarting.
 - **Status:** run `python3 "$CTL" status --root RESEARCH`.
@@ -94,6 +94,8 @@ For current medical, legal, regulatory, standards, or fast-moving technical ques
 
 For every recent direct study or other primary record capable of changing the decision, open its canonical record and verify the exact title, identifier, publication type, date, and whether it contains results or is only a protocol/registry entry. Do not infer those fields from a search snippet. In medical work, reconcile PMID/DOI and trial-registry links and check for a later result publication before calling a study unpublished.
 
+For a current medical comparison, reserve one discovery call for a date-bounded bibliographic query that combines the population, both interventions, and study design, and one route for registry-to-publication or citation-linkage checking. For a legal or regulatory question, plan explicit coverage of controlling definitions and scope, baseline duties, exceptions, enhanced duties, effective/transitional dates, enforcement, non-binding guidance, and disputed boundaries when relevant.
+
 ## Phase 3 — Parallel retrieval with Codex subagents
 
 Use Codex subagents for independent, read-heavy research axes. Prefer the bundled custom roles when available:
@@ -124,7 +126,7 @@ Each subagent must:
 11. count `search_count` as actual search or discovery tool invocations, not result items, opened pages, or individual query objects inside one batched call;
 12. stop the axis when two consecutive search calls through meaningfully different routes add no usable source, independent family, or material contradiction;
 13. never write to the shared research session.
-14. return only decision-relevant evidence: normally no more than eight distinct sources and six material claims per axis; exceed that only for a named strict-mode gap that cannot otherwise be represented.
+14. return only decision-relevant evidence: normally no more than six distinct sources and four material claims per axis; exceed that only for a named strict-mode gap that cannot otherwise be represented.
 15. label each claim `claim_scope: attributed` or `claim_scope: synthesized`; attributed claim text must name the source or authority and stay within what that source directly reports or defines.
 
 A subagent prompt should include this completion condition:
@@ -153,6 +155,10 @@ For a PDF, inspect the relevant pages and figures, not only search-result snippe
 After the first wave, collect novel leads. Run a second wave only for leads that are both material and not duplicates of already investigated questions. A third wave is allowed only in strict mode when a high-risk claim remains unresolved and a concrete new route exists.
 
 Before closing a freshness-sensitive axis, have the parent or claim-verifier cross-check each decision-changing primary identifier returned in the preceding 24 months. This is a metadata and result-status check, not a duplicate broad search: open the authoritative identifier record, distinguish protocol/registry from published results, and correct the return before merge if they disagree.
+
+Before merge, compare the completed returns with every explicit research question and requested outcome in the plan. Each item must have a usable source/claim or a named evidence gap. If an item is missing and the task-wide budget remains, spend only the remaining calls on that named gap. Do not stop merely because each agent returned something, and do not exhaust unused budget when coverage is already complete.
+
+For every intervening amendment, correction, or implementation measure, record its exact title, status, effective date, operative provision, and material effect—or lack of effect—on the requested decision. Finding a newer document alone is not proof that the prior rule changed and does not justify a higher confidence rating.
 
 Stop expansion when one of these is true:
 
@@ -229,6 +235,8 @@ The gate deliberately distinguishes evidence form:
 
 Do not use `attributed` to weaken a causal, comparative, safety, prevalence, forecast, or legal-interpretation conclusion. Instead, attribute each study or authority's result and synthesize the broader conclusion separately.
 
+Different studies may report different results without making either source-reporting statement false. Preserve each accurately attributed result as verified when its canonical source was directly inspected, record the disagreement with `conflicting: true`, and resolve or qualify only the synthesized comparison. If the named source's identity, content, correction, or validity is itself uncertain, mark access partial or use separate defeating evidence and `counter_refuted`; do not treat it as a verified attributed fact.
+
 For `counter_refuted: true`, the ledger must contain separately registered `counter_source_ids`. They may not overlap the claim's supporting `source_ids`. Standard mode requires at least one A/B/C counter-evidence source; strict high-risk mode requires A/B counter-evidence. A free-text `counter_search` note alone never proves refutation.
 
 The verification signature covers the source registry, claim ledger, and all verified/unresolved/refuted outputs. `merge` invalidates any previous signature. Standalone `eval` also recomputes the signature and refuses stale evidence; rerun `validate` after any evidence edit.
@@ -266,11 +274,13 @@ Required full-report sections:
 9. Refuted claims
 10. Bibliography
 
-In the evidence table, include claim ID, conclusion, supporting source IDs, validity date, and status. Keep inference separate from sourced fact. Label inference explicitly.
+In the evidence table, include claim ID, conclusion, supporting source IDs, validity date, and status. Keep inference separate from sourced fact. Label inference explicitly. Include only the decision-critical subset—normally no more than eight claims—and do not reproduce the complete internal ledger as a second report.
 
 Keep source-reported and generalized conclusions visibly distinct. Write “the named trial reported…”, “Article 53 provides…”, or “the versioned documentation states…” for `attributed` claims. A policy or recommendation derived from several such facts is an inference and must be labeled and bounded by their population, jurisdiction, version, and date.
 
 Keep the report decision-focused. Internal ledger counts, phase numbers, and statements that the workflow verified itself are not substantive evidence; mention process only when it explains a limitation or confidence judgment.
+
+Do not paste claim text verbatim merely to satisfy coverage. Write a natural decision report, preserve visible attribution where required, and omit verified ledger entries that do not change the conclusion. The audit requires representative verified-claim use, not a dump of every internal claim.
 
 Do not repeat an unresolved or refuted claim's wording or claim ID outside its dedicated annex heading. In an executive summary, describe only the practical evidence gap in different, qualified language; the audit deliberately detects close paraphrases in assertive sections.
 

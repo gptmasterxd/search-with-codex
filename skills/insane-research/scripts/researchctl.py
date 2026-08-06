@@ -938,8 +938,6 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
 
     if high_risk and not counter_search:
         return "unresolved", "high-risk 주장에 counter_search 누락", True
-    if claim.get("conflicting"):
-        return "unresolved", "출처 간 충돌 미해소", False
     if claim_scope == "attributed":
         if claim_type == "causal":
             return "unresolved", "causal 주장은 attributed 범위로 검증할 수 없음", True
@@ -955,8 +953,13 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
         directly_inspected = [
             source
             for source in resolved
-            if bool(source.get("primary"))
-            and str(source.get("quality_rating") or "").upper() in {"A", "B"}
+            if (
+                str(source.get("quality_rating") or "").upper() == "A"
+                or (
+                    bool(source.get("primary"))
+                    and str(source.get("quality_rating") or "").upper() == "B"
+                )
+            )
             and isinstance(source.get("access"), Mapping)
             and str(source["access"].get("status") or "").lower() == "ok"
         ]
@@ -966,9 +969,13 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
                 "attributed 주장에 직접 열람한 A/B등급 권위 원출처가 없음",
                 False,
             )
+        if claim.get("conflicting"):
+            return "verified", "직접 귀속 사실 확인; 상충은 합성 판단에 보존", False
         return "verified", "직접 귀속 주장 검증 계약 통과", False
     if len(families) < 2:
         return "unresolved", f"독립 출처 계열 {len(families)}개 < 2", False
+    if claim.get("conflicting"):
+        return "unresolved", "출처 간 충돌 미해소", False
     if high_risk and not has_primary:
         if claim.get("primary_source"):
             return "unresolved", "primary_source 표기가 source registry의 primary 출처로 뒷받침되지 않음", False

@@ -36,6 +36,7 @@ Compared with a prompt-only port, this version adds or makes explicit:
 - modal per-domain source-grade normalization, with conservative tie-breaking;
 - authority-aware claim scope: directly inspected source-attributed facts remain visibly attributed, while synthesized strict high-risk conclusions require two independent A/B-grade families;
 - canonical-identifier checks for recent decision-changing primary records, including protocol-versus-results reconciliation;
+- conflict-aware synthesis: divergent studies preserve their source-attributed results while only the cross-study conclusion remains unresolved;
 - explicit primary-source and counter-search requirements;
 - executable proof with command, output, and verdict;
 - signed verification state based on source registry, claim ledger, and verified output;

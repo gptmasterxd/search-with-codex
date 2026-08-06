@@ -756,6 +756,32 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(len(unresolved), 1)
             self.assertIn("직접 열람한", unresolved[0]["status_reason"])
 
+    def test_attributed_review_result_survives_conflicting_study(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["primary"] = False
+            source["access"] = {"method": "browser", "status": "ok"}
+            returns = self.make_agent_return()
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "The named meta-analysis reported no pooled opioid reduction.",
+                    "claim_scope": "attributed",
+                    "attribution": "named meta-analysis",
+                    "source_urls": [SRC_A["url"]],
+                    "conflicting": True,
+                    "counter_search": "A different trial reported an early benefit.",
+                }
+            )
+            write_json(session / "artifacts" / "agent_returns.json", returns[:1])
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            verified = read_json(session / "outputs" / "verified_claims.json")
+            self.assertEqual(len(verified), 1)
+            self.assertIn("상충은 합성", verified[0]["status_reason"])
+
     def test_causal_claim_cannot_use_attributed_shortcut(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp), mode="strict")

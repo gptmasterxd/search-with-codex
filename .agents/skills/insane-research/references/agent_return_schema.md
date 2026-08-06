@@ -76,9 +76,9 @@ Use the canonical field names exactly. In particular, do not rename `quality_rat
 - Keep evidence supporting the claim in `source_urls`.
 - Put sources that directly contradict and defeat the claim in `counter_source_urls`. Do not place the same source in both lists.
 - Use `counter_refuted: true` only when credible contrary evidence defeats the claim and `counter_source_urls` identifies that evidence. Standard mode requires A/B/C counter-evidence; strict high-risk mode requires A/B counter-evidence.
-- Use `conflicting: true` when credible sources disagree and the conflict remains unresolved.
+- Use `conflicting: true` when credible sources disagree and the conflict remains unresolved. For an attributed claim, it records synthesis-level disagreement while the named source's reported result can remain verified. If that source's own identity, content, correction, or validity is uncertain, record partial access or defeating `counter_source_urls`/`counter_refuted` instead of treating it as a verified attributed fact.
 - `primary_source: true` means at least one linked source is the authoritative origin for that claim.
-- An attributed claim can pass with one A/B-grade authoritative origin only when its canonical document was directly opened and that source records `access.status: ok`. A snippet-only or blocked source must use `partial` or `blocked` and remains unresolved.
+- An attributed claim can pass with one directly inspected A-grade authoritative document, or a primary B-grade authority, when that source records `access.status: ok`. This includes an A-grade systematic review as the authoritative origin of its own pooled result, without treating the review as a primary study. A snippet-only or blocked source must use `partial` or `blocked` and remains unresolved.
 - For an executable claim, add:
 
 ```json
@@ -108,7 +108,7 @@ The inverse is also possible: separate documents on one hosting domain can belon
 - One batched call containing several query objects counts as one call.
 - Search hits, snippets, opened pages, document reads, and downloads do not increment `search_count`.
 - `queries_run` contains every query string submitted, including strings grouped into a batch.
-- Normally return at most eight distinct decision-relevant sources and six material claims for one axis. Exceed this only when the parent names a strict-mode evidence gap that cannot otherwise be represented.
+- Normally return at most six distinct decision-relevant sources and four material claims for one axis. Exceed this only when the parent names a strict-mode evidence gap that cannot otherwise be represented.
 
 ## Deterministic compatibility normalization
 
