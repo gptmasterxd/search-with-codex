@@ -134,7 +134,7 @@ Each subagent must:
 13. never write to the shared research session.
 14. return only decision-relevant evidence: normally no more than six distinct sources and four material claims per axis; exceed that only for a named strict-mode gap that cannot otherwise be represented.
 15. label each claim `claim_scope: attributed` or `claim_scope: synthesized`; attributed claim text must name the source or authority and stay within what that source directly reports or defines.
-16. within those limits, preserve the strongest decision-changing result and the strongest credible contrary result before redundant same-direction studies. For evidence syntheses, compare overlapping reviews' search dates, sample sizes, methods, and conclusions instead of keeping only the first review found. A decision-changing source retained in `sources` must have its material result represented in `claims`; otherwise drop a less useful source or record only a concrete lead/dead end.
+16. within those limits, preserve the strongest decision-changing result and the strongest credible contrary result before redundant same-direction studies. For overlapping reviews, reserve claim slots first for the later or larger methodologically strongest synthesis on each decision-changing side, including its material efficacy and harm result; only then keep older overlapping syntheses or indirect mechanical evidence. Compare search dates, sample sizes, methods, and conclusions instead of keeping only the first review found. A decision-changing source retained in `sources` must have its material result represented in `claims`; otherwise drop a less useful source or record only a concrete lead/dead end.
 17. use an aggregator, mirror, or snippet only as a discovery lead unless the underlying canonical record is genuinely unavailable. Never mark the summarized underlying work as directly inspected, and never use an aggregator URL to support an attributed primary-result claim when a PubMed, DOI, publisher, registry, official repository, versioned release record, or official machine-readable representation is reachable.
 
 A subagent prompt should include this completion condition:
@@ -267,7 +267,7 @@ Write two files:
 - `outputs/00_executive_summary.md`
 - `outputs/01_full_report.md`
 
-Use the templates in `assets/templates/` when useful. Cite sources as user-visible Markdown links using the registered canonical URL, for example `[src_001](https://example.org/document)`. Put each linked marker next to the claim it supports and repeat complete link targets in the bibliography. A bare `[src_001]` marker is not a usable citation and fails the final audit. Do not cite a search-result page when the underlying primary source is available.
+Use the templates in `assets/templates/` when useful. Cite sources as user-visible Markdown links using the registered canonical URL, for example `[Named study](https://example.org/document)` or `[src_001](https://example.org/document)`. Put each linked citation next to the claim it supports and repeat complete link targets in the bibliography. A bare `[src_001]` marker is not a usable citation and fails the final audit. Descriptive link labels are preferred in the human report; the audit resolves their registered canonical URLs without requiring internal IDs to be visible. Do not cite a search-result page when the underlying primary source is available.
 
 Required full-report sections:
 
@@ -288,7 +288,7 @@ Keep source-reported and generalized conclusions visibly distinct. Write “the 
 
 Keep the report decision-focused. Internal ledger counts, phase numbers, and statements that the workflow verified itself are not substantive evidence; mention process only when it explains a limitation or confidence judgment.
 
-Do not paste claim text verbatim merely to satisfy coverage. Write a natural decision report, preserve visible attribution where required, and omit verified ledger entries that do not change the conclusion. The audit requires representative verified-claim use, not a dump of every internal claim. Do not follow findings with a second “direct evidence” list that restates the same claims; integrate the decision-critical synthesis once.
+Do not paste claim text verbatim merely to satisfy coverage. Write a natural decision report, preserve visible attribution where required, and omit verified ledger entries that do not change the conclusion. For an attributed claim, a natural paraphrase or translation with the named authority and adjacent registered canonical link satisfies the audit; never add an English “standardized result sentence” section or ledger replay. The audit requires representative verified-claim use, not a dump of every internal claim. Do not follow findings with a second “direct evidence” list that restates the same claims; integrate the decision-critical synthesis once.
 
 When the verified inputs contain a decision-changing conflict, synthesize the strongest evidence on both sides in the findings; do not leave either side only in the bibliography. Prefer major reviews, controlling authorities, and recent direct evidence over redundant small studies. Write the evidence synthesis in the report language. Do not title it as an audit, ledger, verified-claim list, or “original text,” and do not repeat an English ledger sentence solely to satisfy the audit.
 

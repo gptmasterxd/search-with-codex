@@ -1109,6 +1109,49 @@ class ResearchCtlTests(unittest.TestCase):
             )
         )
 
+    def test_attributed_coverage_accepts_natural_paraphrase_and_canonical_url(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": (
+                "The 2025 Gleicher et al. randomized trial (PMID 40935408) reported "
+                "higher recovery scores and lower pain through POD3."
+            ),
+            "claim_scope": "attributed",
+            "attribution": "The 2025 Gleicher et al. randomized trial (PMID 40935408)",
+            "source_ids": ["src_001"],
+        }
+        body = (
+            "2025년 Gleicher 무작위시험은 POD3까지 회복 점수가 높고 통증이 "
+            "낮았다고 보고했다. "
+            "[Gleicher RCT](https://pubmed.ncbi.nlm.nih.gov/40935408/)"
+        )
+        self.assertTrue(
+            researchctl._verified_claim_present(
+                claim,
+                body,
+                {"src_001": "https://pubmed.ncbi.nlm.nih.gov/40935408"},
+            )
+        )
+
+    def test_report_eval_counts_descriptive_registered_links_as_citations(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[Primary report](https://a.example.com/report) "
+                "[Independent analysis](https://b.example.org/analysis)\n\n"
+                "## Unresolved claims\n\nNone.\n\n## Refuted claims\n\nNone.\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["counts"]["cited_sources"], 2)
+            self.assertEqual(report["counts"]["cited_sources_with_visible_url"], 2)
+
     def test_unresolved_leak_matching_does_not_combine_unrelated_paragraphs(self):
         claim = {
             "claim_id": "clm_004",

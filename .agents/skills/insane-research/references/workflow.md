@@ -46,10 +46,11 @@
 
 - [ ] Executive summary and full report exist.
 - [ ] Source markers use registered IDs.
-- [ ] Every used source marker is a Markdown link to its registered canonical URL.
+- [ ] Every used source marker or descriptive citation label is a Markdown link to its registered canonical URL.
 - [ ] Each used verified claim has an adjacent supporting source marker.
 - [ ] Unresolved and refuted claims have dedicated annexes.
 - [ ] Unresolved/refuted wording and IDs do not appear outside their dedicated annexes.
 - [ ] A final editorial pass removed typos, malformed units, duplicated sections, inconsistent terminology, and noncanonical source substitutions without adding facts.
+- [ ] No verbatim English claim-coverage or ledger-replay section was added after a natural-language report; attributed paraphrases keep the named authority and canonical link adjacent.
 - [ ] `finalize` exited 0 and `eval_report.json` says PASS.
 - [ ] Material access limitations are disclosed to the user.

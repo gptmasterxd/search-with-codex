@@ -47,6 +47,8 @@
 - Added a final evidence-preserving editorial pass for duplicated sections, inconsistent terminology, malformed units, and language errors.
 - Required current medical freshness sweeps to batch intervention aliases and preserve both recent positive and null direct studies, without substituting registry linkage for direct-study retrieval.
 - Added official NCBI E-utilities/PMC structured-data fallback before closing a blocked PubMed record as abstract- or result-inaccessible.
+- Made report citation auditing resolve descriptive Markdown labels by registered canonical URL and accept natural attributed paraphrases with adjacent authority and source, removing the incentive to paste English ledger sentences into translated reports.
+- Prioritized later or larger methodologically strongest syntheses and their material harm results for scarce claim slots before redundant older reviews or indirect evidence.
 
 ## 3.1.0 — 2026-08-06
 

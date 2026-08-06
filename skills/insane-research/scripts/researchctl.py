@@ -1286,28 +1286,106 @@ def _claim_text_present_in_body(claim: Mapping[str, Any], body: str) -> bool:
     return any(_claim_text_present(claim, chunk) for chunk in chunks)
 
 
-def _verified_claim_present(claim: Mapping[str, Any], body: str) -> bool:
+_ATTRIBUTION_STOPWORDS = {
+    "according",
+    "analysis",
+    "authors",
+    "current",
+    "directly",
+    "et",
+    "guidance",
+    "guideline",
+    "investigators",
+    "meta",
+    "recommendation",
+    "report",
+    "reported",
+    "review",
+    "says",
+    "study",
+    "systematic",
+    "the",
+    "trial",
+    "randomized",
+    "controlled",
+}
+
+
+def _attribution_present(attribution: str, body: str) -> bool:
+    """Recognize a named authority across natural paraphrase or translation."""
+    normalized_attribution = _normalize_for_match(attribution)
+    normalized_body = _normalize_for_match(body)
+    if not normalized_attribution:
+        return False
+    if normalized_attribution in normalized_body:
+        return True
+    tokens = re.findall(
+        r"[0-9a-z][0-9a-z._/-]*|[가-힣]{2,}",
+        unicodedata.normalize("NFKC", attribution).lower(),
+    )
+    anchors = [
+        _normalize_for_match(token)
+        for token in tokens
+        if token not in _ATTRIBUTION_STOPWORDS
+        and token not in {"al"}
+        and not (
+            token.isdigit()
+            and len(token) == 4
+            and 1900 <= int(token) <= 2100
+        )
+        and (len(_normalize_for_match(token)) >= 4 or any(char.isdigit() for char in token))
+    ]
+    return any(anchor and anchor in normalized_body for anchor in anchors)
+
+
+def _chunk_uses_sources(
+    chunk: str,
+    source_ids: set[str],
+    source_url_by_id: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """Accept stable source markers or the registered canonical URL itself."""
+    if not source_ids:
+        return True
+    if source_ids & set(SOURCE_ID_RE.findall(chunk)):
+        return True
+    if not source_url_by_id:
+        return False
+    chunk_urls = report_urls(chunk)
+    return any(
+        str(source_url_by_id.get(source_id) or "") in chunk_urls
+        for source_id in source_ids
+    )
+
+
+def _verified_claim_present(
+    claim: Mapping[str, Any],
+    body: str,
+    source_url_by_id: Optional[Mapping[str, str]] = None,
+) -> bool:
     source_ids = {str(value) for value in claim.get("source_ids") or []}
     chunks = [chunk for chunk in re.split(r"\n\s*\n", body) if chunk.strip()]
     for chunk in chunks:
-        if not _claim_text_present(claim, chunk):
+        if not _chunk_uses_sources(chunk, source_ids, source_url_by_id):
             continue
         if str(claim.get("claim_scope") or "") == "attributed":
-            attribution = _normalize_for_match(str(claim.get("attribution") or ""))
-            if not attribution or attribution not in _normalize_for_match(chunk):
+            attribution = str(claim.get("attribution") or "")
+            if not _attribution_present(attribution, chunk):
                 continue
-        if not source_ids:
             return True
-        if source_ids & set(SOURCE_ID_RE.findall(chunk)):
+        if _claim_text_present(claim, chunk):
             return True
     return False
 
 
-def _attributed_claim_generalized(claim: Mapping[str, Any], body: str) -> bool:
+def _attributed_claim_generalized(
+    claim: Mapping[str, Any],
+    body: str,
+    source_url_by_id: Optional[Mapping[str, str]] = None,
+) -> bool:
     """Detect use of an attributed claim after its named authority was removed."""
     if str(claim.get("claim_scope") or "") != "attributed":
         return False
-    attribution = _normalize_for_match(str(claim.get("attribution") or ""))
+    attribution = str(claim.get("attribution") or "")
     if not attribution:
         return False
     source_ids = {str(value) for value in claim.get("source_ids") or []}
@@ -1315,9 +1393,9 @@ def _attributed_claim_generalized(claim: Mapping[str, Any], body: str) -> bool:
     for chunk in chunks:
         if not _claim_text_present(claim, chunk):
             continue
-        if source_ids and not (source_ids & set(SOURCE_ID_RE.findall(chunk))):
+        if not _chunk_uses_sources(chunk, source_ids, source_url_by_id):
             continue
-        if attribution not in _normalize_for_match(chunk):
+        if not _attribution_present(attribution, chunk):
             return True
     return False
 
@@ -1458,9 +1536,15 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
     except (OSError, UnicodeError) as exc:
         raise ResearchError(f"보고서 Markdown 읽기 실패: {exc}") from exc
     main_body = _strip_annex_sections(report_text)
-    cited_ids = set(SOURCE_ID_RE.findall(report_text))
+    marker_ids = set(SOURCE_ID_RE.findall(report_text))
     visible_urls = report_urls(report_text)
-    dangling = sorted(cited_ids - source_ids)
+    url_cited_ids = {
+        source_id
+        for source_id, url in source_url_by_id.items()
+        if url and url in visible_urls
+    }
+    cited_ids = marker_ids | url_cited_ids
+    dangling = sorted(marker_ids - source_ids)
     orphan_sources = sorted(source_ids - cited_ids)
     cited_registered_ids = sorted(cited_ids & source_ids)
     missing_citation_urls = [
@@ -1479,14 +1563,18 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
                     "text": str(claim.get("text") or ""),
                 }
             )
-    covered_verified = [str(claim.get("claim_id")) for claim in verified if _verified_claim_present(claim, main_body)]
+    covered_verified = [
+        str(claim.get("claim_id"))
+        for claim in verified
+        if _verified_claim_present(claim, main_body, source_url_by_id)
+    ]
     uncovered_verified = [
         str(claim.get("claim_id")) for claim in verified if str(claim.get("claim_id")) not in covered_verified
     ]
     generalized_attributed = [
         str(claim.get("claim_id"))
         for claim in verified
-        if _attributed_claim_generalized(claim, main_body)
+        if _attributed_claim_generalized(claim, main_body, source_url_by_id)
     ]
     citation_resolution_rate = 1.0 if not cited_ids else (len(cited_ids) - len(dangling)) / len(cited_ids)
     citation_url_coverage_rate = (

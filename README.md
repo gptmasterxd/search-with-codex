@@ -33,6 +33,7 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Comparative medical searches audit overlapping reviews with different cutoffs, samples, methods, or conclusions. Aggregators cannot inherit an underlying study's primary status, and exact technical compatibility claims pair a labeled breadth index with version-specific first-party records.
 - Current medical freshness sweeps preserve recent positive and null direct studies across intervention aliases, and blocked PubMed pages fall back to official NCBI structured data before being closed as inaccessible.
 - Before final audit, one evidence-preserving editorial pass removes duplicated evidence sections, terminology drift, malformed units, and language errors.
+- The report audit resolves descriptive citation labels by their registered canonical URLs and recognizes natural attributed paraphrases, so translated reports no longer need verbatim English ledger sentences.
 - The plugin manifest now follows the validated Codex author and interface schema.
 
 These changes address the reviewed [v3.1.0 versus base Codex benchmark](benchmarks/results/v3.1.0-vs-base.md), where v3.1 retained strong strict-mode currentness but used 4.69× the tokens of base Codex, exposed no usable links in one report, and missed a recent direct medical trial.
