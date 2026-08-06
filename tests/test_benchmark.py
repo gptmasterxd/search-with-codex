@@ -31,6 +31,12 @@ class BenchmarkHarnessTests(unittest.TestCase):
                         json.dumps({"type": "thread.started", "thread_id": "thread-1"}),
                         json.dumps(
                             {
+                                "type": "item.started",
+                                "item": {"type": "web_search", "query": "x"},
+                            }
+                        ),
+                        json.dumps(
+                            {
                                 "type": "item.completed",
                                 "item": {"type": "web_search", "query": "x"},
                             }

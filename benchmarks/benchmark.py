@@ -350,7 +350,7 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
                 if isinstance(value, int):
                     usage[key] = value
         item = event.get("item")
-        if isinstance(item, dict):
+        if event.get("type") == "item.completed" and isinstance(item, dict):
             item_type = str(item.get("type") or "unknown")
             item_types[item_type] += 1
             if item_type == "error":
@@ -771,6 +771,60 @@ def run_benchmark(args: argparse.Namespace) -> Path:
     return iteration
 
 
+def refresh_derived_run_data(
+    iteration: Path,
+    evals: Sequence[dict[str, Any]],
+) -> None:
+    """Rebuild derived metrics from authoritative transcripts and outputs."""
+    for eval_case in evals:
+        eval_name = str(eval_case["name"])
+        for configuration in CONFIGURATIONS:
+            run_dir = iteration / eval_name / configuration
+            execution_path = run_dir / "execution.json"
+            if not execution_path.is_file():
+                raise BenchmarkError(f"missing execution record: {execution_path}")
+            execution = load_json(execution_path)
+            if not isinstance(execution, dict):
+                raise BenchmarkError(f"invalid execution record: {execution_path}")
+            transcript_path = run_dir / "transcript.jsonl"
+            transcript_metrics = parse_jsonl_metrics(transcript_path)
+            execution["transcript_metrics"] = transcript_metrics
+            write_json(execution_path, execution)
+            duration = float(execution.get("duration_seconds") or 0)
+            write_json(
+                run_dir / "timing.json",
+                {
+                    "total_tokens": transcript_metrics["total_tokens"],
+                    "duration_ms": round(duration * 1000),
+                    "total_duration_seconds": duration,
+                },
+            )
+            outputs = run_dir / "outputs"
+            state_path = outputs / "research-state.json"
+            research = {"state": load_json(state_path)} if state_path.is_file() else {}
+            grading = deterministic_grade(
+                eval_case=eval_case,
+                run_dir=run_dir,
+                execution=execution,
+                research=research,
+            )
+            metrics_path = outputs / "metrics.json"
+            metrics = load_json(metrics_path) if metrics_path.is_file() else {}
+            if not isinstance(metrics, dict):
+                metrics = {}
+            metrics.update(
+                {
+                    "tool_calls": transcript_metrics["tool_item_types"],
+                    "total_tool_calls": transcript_metrics["total_tool_calls"],
+                    "errors_encountered": len(transcript_metrics["errors"]),
+                    "warnings_encountered": len(transcript_metrics["warnings"]),
+                    "output_chars": grading["execution_metrics"]["output_chars"],
+                    "transcript_chars": transcript_path.stat().st_size,
+                }
+            )
+            write_json(metrics_path, metrics)
+
+
 def read_run_output(run_dir: Path, max_chars: int = 60000) -> str:
     _path, corpus = primary_report(run_dir / "outputs")
     corpus = corpus.strip()
@@ -912,6 +966,7 @@ def judge_benchmark(args: argparse.Namespace) -> Path:
     iteration = args.workspace.resolve() / args.iteration
     metadata = load_json(iteration / "run_metadata.json")
     evals = load_evals(args.evals)
+    refresh_derived_run_data(iteration, evals)
     commit = str(metadata.get("repo_commit") or "")
     isolation = metadata.get("baseline_isolation")
     if not isinstance(isolation, dict):
@@ -991,6 +1046,7 @@ def aggregate_benchmark(args: argparse.Namespace) -> Path:
     iteration = args.workspace.resolve() / args.iteration
     metadata = load_json(iteration / "run_metadata.json")
     evals = load_evals(args.evals)
+    refresh_derived_run_data(iteration, evals)
     judge_results_raw = load_json(iteration / "judge_results.json")
     judge_results = {
         str(item.get("eval_name")): item
@@ -1091,6 +1147,7 @@ def aggregate_benchmark(args: argparse.Namespace) -> Path:
             "analyzer_model": args.judge_model or metadata.get("model"),
             "timestamp": utc_now(),
             "repo_commit": metadata.get("repo_commit"),
+            "analyzer_repo_commit": git_commit(ROOT),
             "candidate_skill_tree_sha256": metadata.get(
                 "candidate_skill_tree_sha256"
             ),
