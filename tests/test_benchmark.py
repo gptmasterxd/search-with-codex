@@ -4,6 +4,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -111,6 +112,18 @@ class BenchmarkHarnessTests(unittest.TestCase):
             metrics = benchmark.parse_jsonl_metrics(path)
             self.assertEqual(metrics["errors"], [])
             self.assertEqual(len(metrics["warnings"]), 1)
+
+    def test_atomic_writes_are_safe_for_concurrent_same_path_updates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "shared.json"
+            payloads = [
+                {"writer": index, "payload": str(index) * 10000}
+                for index in range(24)
+            ]
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                list(executor.map(lambda value: benchmark.write_json(path, value), payloads))
+            self.assertIn(json.loads(path.read_text(encoding="utf-8")), payloads)
+            self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
 
 
 if __name__ == "__main__":

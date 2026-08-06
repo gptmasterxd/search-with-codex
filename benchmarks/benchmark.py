@@ -16,6 +16,7 @@ import signal
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 from collections import Counter
 from datetime import datetime, timezone
@@ -72,17 +73,23 @@ def load_json(path: Path) -> Any:
 
 
 def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.replace(temp, path)
+    write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(text, encoding="utf-8")
-    os.replace(temp, path)
+    descriptor, temp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temp = Path(temp_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
 
 
 def command_output(args: Sequence[str], cwd: Path) -> str:
@@ -569,6 +576,21 @@ def prepare_project(repo_root: Path, run_dir: Path, configuration: str) -> Path:
     return project
 
 
+def prepare_eval_inputs(iteration: Path, eval_case: dict[str, Any]) -> None:
+    """Create files shared by both arms before concurrent execution starts."""
+    eval_dir = iteration / str(eval_case["name"])
+    write_json(
+        eval_dir / "eval_metadata.json",
+        {
+            "eval_id": eval_case["id"],
+            "eval_name": eval_case["name"],
+            "prompt": eval_case["prompt"],
+            "assertions": [item["text"] for item in eval_case["expectations"]],
+        },
+    )
+    write_text(eval_dir / "prompt.txt", str(eval_case["prompt"]) + "\n")
+
+
 def run_one(
     *,
     repo_root: Path,
@@ -585,16 +607,6 @@ def run_one(
     run_dir = eval_dir / configuration
     outputs = run_dir / "outputs"
     outputs.mkdir(parents=True, exist_ok=True)
-    write_json(
-        eval_dir / "eval_metadata.json",
-        {
-            "eval_id": eval_case["id"],
-            "eval_name": eval_case["name"],
-            "prompt": eval_case["prompt"],
-            "assertions": [item["text"] for item in eval_case["expectations"]],
-        },
-    )
-    write_text(eval_dir / "prompt.txt", str(eval_case["prompt"]) + "\n")
     project = prepare_project(repo_root, run_dir, configuration)
     final_path = outputs / "final.md"
     transcript_path = run_dir / "transcript.jsonl"
@@ -710,6 +722,8 @@ def run_benchmark(args: argparse.Namespace) -> Path:
         },
     }
     write_json(iteration / "run_metadata.json", metadata)
+    for eval_case in evals:
+        prepare_eval_inputs(iteration, eval_case)
     jobs = [
         (eval_case, configuration)
         for eval_case in evals
