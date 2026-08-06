@@ -41,6 +41,10 @@
 - Reserved one capped medical discovery call for post-return closure of concrete identifiers, blocked sources, or named outcome gaps.
 - Prioritized the strongest decision-changing and contrary results within compact agent returns, and prohibited bibliography-only treatment of material conflicts.
 - Prevented translated or repeated ledger prose from being presented as original quotations in human reports.
+- Required current medical comparisons to audit overlapping reviews and retain the strongest credible synthesis on both sides instead of stopping at the first review found.
+- Prevented aggregators, mirrors, and compatibility indexes from inheriting the primary status, publisher, or grade of underlying material; attributed primary-result claims now require the strongest reachable canonical record.
+- Added breadth-plus-authority coverage for technical package ecosystems and version-specific first-party anchors for exact compatibility claims.
+- Added a final evidence-preserving editorial pass for duplicated sections, inconsistent terminology, malformed units, and language errors.
 
 ## 3.1.0 — 2026-08-06
 

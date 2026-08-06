@@ -19,8 +19,10 @@
 - [ ] Primary-source attempts are documented.
 - [ ] Search dates and content validity dates are distinct.
 - [ ] Decision-changing recent primary identifiers were opened and checked for exact title, type, date, and result status; protocol/registry records were reconciled with later publications.
-- [ ] Current medical comparisons used a date-bounded PICO/design bibliographic query and a registry/publication linkage route.
-- [ ] `search_count` counts tool invocations, while `queries_run` lists submitted query strings.
+- [ ] Current medical comparisons used a date-bounded PICO/design bibliographic query, audited overlapping reviews for contrary syntheses, and used a registry/publication linkage route.
+- [ ] `search_count` counts tool invocations, while `queries_run` lists the exact literal submitted query strings rather than category labels.
+- [ ] Aggregators and mirrors are classified as the inspected artifacts and replaced by canonical records for attributed primary-result claims whenever reachable.
+- [ ] Broad technical compatibility claims use a labeled breadth index plus version-specific first-party checks for representative dependencies.
 - [ ] Source families identify duplicated underlying evidence.
 - [ ] Every claim declares `claim_scope`; attributed text visibly names its authority and synthesized conclusions retain independent evidence.
 - [ ] Dead ends and access limits are recorded.
@@ -38,7 +40,7 @@
 - [ ] Evidence was not edited after validation; if it was, `validate` was rerun.
 - [ ] Report body uses verified high-risk claims only.
 - [ ] Attributed claims remain visibly attributed and are not generalized beyond the inspected source.
-- [ ] The evidence table contains only a decision-critical subset and does not duplicate the complete internal ledger.
+- [ ] The evidence synthesis contains only a decision-critical subset and does not duplicate the complete internal ledger or repeat the findings as a second claim list.
 
 ## Finalization
 
@@ -48,5 +50,6 @@
 - [ ] Each used verified claim has an adjacent supporting source marker.
 - [ ] Unresolved and refuted claims have dedicated annexes.
 - [ ] Unresolved/refuted wording and IDs do not appear outside their dedicated annexes.
+- [ ] A final editorial pass removed typos, malformed units, duplicated sections, inconsistent terminology, and noncanonical source substitutions without adding facts.
 - [ ] `finalize` exited 0 and `eval_report.json` says PASS.
 - [ ] Material access limitations are disclosed to the user.

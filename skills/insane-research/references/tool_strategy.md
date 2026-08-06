@@ -33,7 +33,7 @@ Vary both the wording and the retrieval surface:
 - date-bounded and historical-cutoff variants;
 - explicit counter-queries such as criticism, limitation, correction, retraction, audit, lawsuit, or failure.
 
-Do not spend the budget on superficial paraphrases. Log the queries actually run.
+Do not spend the budget on superficial paraphrases. Log the exact literal queries actually submitted; category labels or retrospective summaries are not query logs.
 
 Batch independent query objects in one tool call when the schema supports it. Unless the parent supplies a smaller limit, use at most 6 search-tool calls for a standard axis or 8 for a strict axis. A task-wide user limit is shared across all axes and must be divided by the parent, never copied to every agent. The parent may authorize up to two additional calls only for a named unresolved high-risk claim and a concrete new route, and never beyond the user's cap. Stop after two consecutive calls through meaningfully different routes add no usable source, independent source family, or material contradiction.
 
@@ -48,16 +48,27 @@ Record snippet-only access as `partial`, not `ok`.
 
 For a current medical comparison, use at least one date-bounded bibliographic query that
 combines the population, both interventions, and randomized or systematic-review design,
-plus one registry/publication or citation-linkage route. For a legal amendment or
+plus one registry/publication or citation-linkage route. Within that bibliographic call,
+audit overlapping systematic reviews by following related/citing records or searching the
+same comparator and period for different search cutoffs, sample sizes, methods, or
+conclusions. Preserve the strongest credible positive and null or harmful synthesis rather
+than stopping at the first review. For a legal amendment or
 implementing measure, inspect the operative provision and state exactly what it changes,
 when it takes effect, and whether it materially changes the requested answer. A newer
 document's existence alone is not evidence that the controlling rule changed.
+
+For a technical production-adoption question without a supplied dependency lockfile, use
+a maintained compatibility index for breadth only, state when it is manually maintained,
+and verify at least two representative decision-critical packages against version-specific
+first-party documentation or release records. A missing index entry means unverified, not
+unsupported. Do not cite a generic releases landing page for an exact version claim when a
+versioned release page or stable anchor is reachable.
 
 `search_count` means the number of actual search or discovery tool invocations. A batched call counts once. Do not count returned hits, snippets, opened pages, downloaded documents, or individual query objects inside a batch as separate calls. `queries_run` still lists every query string actually submitted.
 
 ## Access failures
 
-Record access failures and switch evidence routes rather than repeatedly hammering the same URL. Reasonable alternatives include:
+Record access failures and switch evidence routes rather than repeatedly hammering the same URL. Grade and describe the artifact actually opened: an aggregator or mirror does not become a primary source merely because it summarizes one, and it cannot inherit the underlying publisher's identity. Reasonable alternatives include:
 
 - another official representation of the same material;
 - a machine-readable API or repository file;

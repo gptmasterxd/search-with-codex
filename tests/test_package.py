@@ -37,6 +37,26 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("PACKAGE CHECK: PASS", result.stdout)
 
+    def test_benchmark_regressions_are_encoded_in_retrieval_contract(self):
+        skill = (ROOT / "skills" / "insane-research" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        academic = (ROOT / ".codex" / "agents" / "academic-researcher.toml").read_text(
+            encoding="utf-8"
+        )
+        editor = (ROOT / ".codex" / "agents" / "report-editor.toml").read_text(
+            encoding="utf-8"
+        )
+        for phrase in (
+            "audit overlapping syntheses",
+            "aggregator cannot inherit",
+            "version-specific first-party",
+            "reread both user-facing files once",
+        ):
+            self.assertIn(phrase, skill)
+        self.assertIn("do not stop at the first systematic review", academic)
+        self.assertIn("awkward machine translation", editor)
+
     def test_release_metadata_is_current(self):
         for command in (
             [sys.executable, str(ROOT / "scripts" / "update_release_metadata.py"), "--check"],

@@ -30,6 +30,8 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Merge review starts from compact warning output, and `researchctl brief` supplies one synthesis map instead of replaying the complete registry and ledger into model context.
 - Human reports omit internal claim IDs and gate statuses, limit the evidence synthesis to six decision-critical findings, and summarize only decision-relevant gaps in the annexes.
 - Decision-changing conflicts must present the strongest evidence on both sides in the findings; report prose never relabels ledger restatements as original quotations.
+- Comparative medical searches audit overlapping reviews with different cutoffs, samples, methods, or conclusions. Aggregators cannot inherit an underlying study's primary status, and exact technical compatibility claims pair a labeled breadth index with version-specific first-party records.
+- Before final audit, one evidence-preserving editorial pass removes duplicated evidence sections, terminology drift, malformed units, and language errors.
 - The plugin manifest now follows the validated Codex author and interface schema.
 
 These changes address the reviewed [v3.1.0 versus base Codex benchmark](benchmarks/results/v3.1.0-vs-base.md), where v3.1 retained strong strict-mode currentness but used 4.69× the tokens of base Codex, exposed no usable links in one report, and missed a recent direct medical trial.
