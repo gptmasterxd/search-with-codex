@@ -96,6 +96,8 @@ For every recent direct study or other primary record capable of changing the de
 
 For a current medical comparison, reserve one discovery call for a date-bounded bibliographic query that combines the population, both interventions, and study design, and one route for registry-to-publication or citation-linkage checking. For a legal or regulatory question, plan explicit coverage of controlling definitions and scope, baseline duties, exceptions, enhanced duties, effective/transitional dates, enforcement, non-binding guidance, and disputed boundaries when relevant.
 
+When the user specifies an outcome horizon, search the exact window first. If exact head-to-head evidence is sparse, reserve at most one sensitivity search that changes only one dimension at a time: the nearest scheduled follow-up just outside the window, or an adjacent add-on/usual-care comparator that preserves the population, intervention, and outcome. Label that evidence as indirect and retain the original scope; never silently substitute it for the requested comparison. For a device, procedure, catheter, or operational intervention, include mechanical and workflow failure modes—such as migration, dislodgement, leakage, occlusion, removal, device failure, and management burden when applicable—alongside clinical adverse events.
+
 ## Phase 3 — Parallel retrieval with Codex subagents
 
 Use Codex subagents for independent, read-heavy research axes. Prefer the bundled custom roles when available:
@@ -156,7 +158,7 @@ After the first wave, collect novel leads. Run a second wave only for leads that
 
 Before closing a freshness-sensitive axis, have the parent or claim-verifier cross-check each decision-changing primary identifier returned in the preceding 24 months. This is a metadata and result-status check, not a duplicate broad search: open the authoritative identifier record, distinguish protocol/registry from published results, and correct the return before merge if they disagree.
 
-Before merge, compare the completed returns with every explicit research question and requested outcome in the plan. Each item must have a usable source/claim or a named evidence gap. If an item is missing and the task-wide budget remains, spend only the remaining calls on that named gap. Do not stop merely because each agent returned something, and do not exhaust unused budget when coverage is already complete.
+Before merge, compare the completed returns with every explicit research question and requested outcome in the plan. Each item must have a usable source/claim or a named evidence gap. If an item is missing and the task-wide budget remains, spend only the remaining calls on that named gap. When an exact horizon or comparator remains empty, use at most one of those remaining calls for the one-dimension sensitivity route defined in Phase 2 and record why the result is indirect. Do not stop merely because each agent returned something, and do not exhaust unused budget when coverage is already complete.
 
 For every intervening amendment, correction, or implementation measure, record its exact title, status, effective date, operative provision, and material effect—or lack of effect—on the requested decision. Finding a newer document alone is not proof that the prior rule changed and does not justify a higher confidence rating.
 
@@ -283,6 +285,8 @@ Keep the report decision-focused. Internal ledger counts, phase numbers, and sta
 Do not paste claim text verbatim merely to satisfy coverage. Write a natural decision report, preserve visible attribution where required, and omit verified ledger entries that do not change the conclusion. The audit requires representative verified-claim use, not a dump of every internal claim.
 
 Do not repeat an unresolved or refuted claim's wording or claim ID outside its dedicated annex heading. In an executive summary, describe only the practical evidence gap in different, qualified language; the audit deliberately detects close paraphrases in assertive sections.
+
+Keep the annexes decision-facing: summarize each material unresolved or refuted issue once in plain language, state its practical consequence, and leave claim IDs, status reasons, and metadata-only discrepancies in the JSON audit outputs. Do not reproduce the unresolved or refuted ledger. If an annex has no material item, write `None`.
 
 ## Phase 7 — Audit and finalize
 

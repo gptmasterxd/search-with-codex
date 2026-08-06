@@ -33,6 +33,8 @@
 - Scoped unresolved-claim fuzzy matching to local paragraphs so unrelated terms across a report cannot create a false leakage failure.
 - Preserved accurately attributed study or authority results when broader evidence conflicts; disagreement now constrains the synthesized conclusion instead of erasing what each source reported.
 - Required current medical comparison searches to include a date-bounded bibliographic route and registry/publication linkage, and required intervening legal measures to state their operative effect.
+- Added one bounded, explicitly indirect sensitivity route for sparse exact-horizon or exact-comparator evidence, and required device/procedure research to cover mechanical and workflow failures.
+- Kept unresolved/refuted annexes decision-facing instead of replaying internal claim IDs and status ledgers.
 
 ## 3.1.0 — 2026-08-06
 
