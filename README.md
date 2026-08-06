@@ -20,6 +20,8 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Every cited registry ID must expose its canonical URL in the user-facing report. Bare `[src_NNN]` markers now fail the final audit.
 - Parallel results are saved as isolated `artifacts/agent_returns/*.json` files, removing the shared aggregate-file patch conflict while retaining legacy-session support.
 - Current medical, legal, regulatory, standards, and fast-moving technical work includes a direct-primary freshness sweep over the cutoff date and preceding 24 months.
+- Claims distinguish source-attributed facts from synthesized conclusions. A directly inspected A/B-grade authoritative origin can verify only a visibly attributed statement about what it says; synthesized strict conclusions still require two independent A/B-grade families.
+- Recent decision-changing studies and official records must be opened by canonical identifier and checked for exact title, type, date, and result status, preventing protocol/result misclassification.
 - Standard mode starts with 2–3 axes and at most three research agents; strict mode starts with 3–4 axes and at most four. Per-axis search and return budgets are bounded.
 - Merge review starts from compact warning output, and `researchctl brief` supplies one synthesis map instead of replaying the complete registry and ledger into model context.
 - The plugin manifest now follows the validated Codex author and interface schema.
@@ -47,6 +49,11 @@ Existing 3.0 session directories can be retained, but claims with `counter_refut
 ### Upgrading existing 3.1 sessions
 
 Existing aggregate `artifacts/agent_returns.json` files remain valid. New work should save one completed return per axis under `artifacts/agent_returns/`; when that directory contains JSON files, it takes precedence over the legacy aggregate. Rerun `validate → finalize` after adding canonical Markdown links such as `[src_001](https://example.org/source)` to every cited source.
+
+Claims from existing sessions default to `claim_scope: synthesized`. To use the
+source-attributed path, recollect the affected return with an explicit
+`claim_scope: attributed`, an `attribution` string that appears in the claim text,
+and a directly opened A/B-grade primary source with `access.status: ok`.
 
 ## Install
 

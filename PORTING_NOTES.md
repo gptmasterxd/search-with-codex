@@ -34,7 +34,8 @@ Compared with a prompt-only port, this version adds or makes explicit:
 - source-family independence, not only domain counts;
 - safe URL normalization and tracking-parameter removal;
 - modal per-domain source-grade normalization, with conservative tie-breaking;
-- strict mode requiring three independent source families for high-risk claims;
+- authority-aware claim scope: directly inspected source-attributed facts remain visibly attributed, while synthesized strict high-risk conclusions require two independent A/B-grade families;
+- canonical-identifier checks for recent decision-changing primary records, including protocol-versus-results reconciliation;
 - explicit primary-source and counter-search requirements;
 - executable proof with command, output, and verdict;
 - signed verification state based on source registry, claim ledger, and verified output;

@@ -32,8 +32,9 @@ If `doctor` fails, report the exact failing check. Do not continue with a fabric
 
 ## Invocation modes
 
-- **Standard:** most research. Two independent source families are required for a verified claim.
-- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. Strict high-risk claims require three independent source families, including at least two A/B-grade source families.
+- **Standard:** most research. A synthesized claim requires two independent source families.
+- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. A synthesized strict high-risk claim requires two independent A/B-grade source families, including an authoritative origin.
+- **Attributed fact:** a claim narrowly framed as what a named statute, specification, official record, study, or dataset directly says may use `claim_scope: attributed`. It can pass with one directly inspected A/B-grade authoritative origin after a counter-search. Preserve the attribution in the report; never generalize a source-reported result into a real-world effect or legal interpretation.
 - **Resume:** when a session path or session ID is supplied, read its `state.json`, artifacts, source registry, and existing outputs. Continue from the first incomplete phase rather than restarting.
 - **Status:** run `python3 "$CTL" status --root RESEARCH`.
 
@@ -91,6 +92,8 @@ Include the current date in freshness-sensitive searches. For historical researc
 
 For current medical, legal, regulatory, standards, or fast-moving technical questions, assign a freshness sweep explicitly. It must search the cutoff date and the preceding 24 months for direct primary studies, amendments, corrections, superseding releases, and newly effective guidance. If a decisive source is blocked, triangulate it through an authoritative identifier or alternate first-party route—such as DOI/PubMed, a trial registry, an official journal or gazette, a repository release, or an exact-title search—before closing the gap.
 
+For every recent direct study or other primary record capable of changing the decision, open its canonical record and verify the exact title, identifier, publication type, date, and whether it contains results or is only a protocol/registry entry. Do not infer those fields from a search snippet. In medical work, reconcile PMID/DOI and trial-registry links and check for a later result publication before calling a study unpublished.
+
 ## Phase 3 — Parallel retrieval with Codex subagents
 
 Use Codex subagents for independent, read-heavy research axes. Prefer the bundled custom roles when available:
@@ -122,6 +125,7 @@ Each subagent must:
 12. stop the axis when two consecutive search calls through meaningfully different routes add no usable source, independent family, or material contradiction;
 13. never write to the shared research session.
 14. return only decision-relevant evidence: normally no more than eight distinct sources and six material claims per axis; exceed that only for a named strict-mode gap that cannot otherwise be represented.
+15. label each claim `claim_scope: attributed` or `claim_scope: synthesized`; attributed claim text must name the source or authority and stay within what that source directly reports or defines.
 
 A subagent prompt should include this completion condition:
 
@@ -147,6 +151,8 @@ For a PDF, inspect the relevant pages and figures, not only search-result snippe
 ## Phase 3B — Expansion, once or twice only
 
 After the first wave, collect novel leads. Run a second wave only for leads that are both material and not duplicates of already investigated questions. A third wave is allowed only in strict mode when a high-risk claim remains unresolved and a concrete new route exists.
+
+Before closing a freshness-sensitive axis, have the parent or claim-verifier cross-check each decision-changing primary identifier returned in the preceding 24 months. This is a metadata and result-status check, not a duplicate broad search: open the authoritative identifier record, distinguish protocol/registry from published results, and correct the return before merge if they disagree.
 
 Stop expansion when one of these is true:
 
@@ -214,7 +220,14 @@ python3 "$CTL" brief --session "<session>"
 
 Use this compact ID/title/URL/claim map with the subagent returns already in context. Do not separately print the complete source registry, verified/unresolved/refuted files, or report templates unless a specific missing field requires it.
 
-Only a verified high-risk claim may appear as an unqualified assertion in the report body. Unresolved and refuted claims belong in clearly labeled annex sections and may not be reframed as verified.
+Only a verified high-risk claim may appear as an unqualified assertion in the report body. An `attributed` claim must remain visibly attributed to its named source; its verified status establishes faithful reporting of that source, not independent replication or general truth. Unresolved and refuted claims belong in clearly labeled annex sections and may not be reframed as verified.
+
+The gate deliberately distinguishes evidence form:
+
+- `claim_scope: attributed`: one directly inspected A/B-grade authoritative origin is enough when the claim text names that authority and a counter-search found no superseding or defeating record.
+- `claim_scope: synthesized`: two independent source families are required. In strict high-risk mode both families must be A/B grade and one must be the authoritative origin for the claim.
+
+Do not use `attributed` to weaken a causal, comparative, safety, prevalence, forecast, or legal-interpretation conclusion. Instead, attribute each study or authority's result and synthesize the broader conclusion separately.
 
 For `counter_refuted: true`, the ledger must contain separately registered `counter_source_ids`. They may not overlap the claim's supporting `source_ids`. Standard mode requires at least one A/B/C counter-evidence source; strict high-risk mode requires A/B counter-evidence. A free-text `counter_search` note alone never proves refutation.
 
@@ -255,6 +268,8 @@ Required full-report sections:
 
 In the evidence table, include claim ID, conclusion, supporting source IDs, validity date, and status. Keep inference separate from sourced fact. Label inference explicitly.
 
+Keep source-reported and generalized conclusions visibly distinct. Write “the named trial reported…”, “Article 53 provides…”, or “the versioned documentation states…” for `attributed` claims. A policy or recommendation derived from several such facts is an inference and must be labeled and bounded by their population, jurisdiction, version, and date.
+
 Keep the report decision-focused. Internal ledger counts, phase numbers, and statements that the workflow verified itself are not substantive evidence; mention process only when it explains a limitation or confidence judgment.
 
 Do not repeat an unresolved or refuted claim's wording or claim ID outside its dedicated annex heading. In an executive summary, describe only the practical evidence gap in different, qualified language; the audit deliberately detects close paraphrases in assertive sections.
@@ -272,6 +287,7 @@ The report audit checks:
 - whether every cited source ID exists;
 - whether every registered source ID used in the report exposes its canonical URL to the reader;
 - whether unresolved or refuted claims leaked into the assertive body;
+- whether a source-attributed claim was reused after removing its named authority;
 - whether verified claims are actually used with an adjacent supporting source marker, rather than counting citations elsewhere in the report;
 - how many registered sources were never cited.
 

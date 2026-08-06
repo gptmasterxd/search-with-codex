@@ -10,6 +10,8 @@
 - Compact `brief` synthesis output to avoid replaying complete registries and status files into model context.
 - Reviewed real-Codex benchmark harness and sanitized v3.1 baseline results.
 - Validated Codex plugin author and interface metadata.
+- Authority-aware `claim_scope` contract separating source-attributed facts from synthesized conclusions.
+- Canonical-identifier checks for recent decision-changing primary records, including medical protocol/result reconciliation.
 
 ### Changed
 
@@ -18,6 +20,7 @@
 - Parent review starts from merge status and warnings, then inspects only targeted registry or ledger entries.
 - Reports use linked source markers and omit self-certifying audit language from substantive findings.
 - Session schema is now version 3; legacy aggregate agent returns remain supported.
+- Strict synthesized high-risk claims require two independent A/B-grade families; a directly inspected authoritative source can verify only a visibly attributed, source-bound statement.
 
 ### Fixed
 

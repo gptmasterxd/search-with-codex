@@ -39,6 +39,13 @@ Batch independent query objects in one tool call when the schema supports it. Un
 
 For current medical, legal, regulatory, standards, or fast-moving technical work, reserve part of the budget for a direct-primary freshness sweep covering the cutoff date and preceding 24 months. Search for new trials, amendments, corrections, superseding releases, and newly effective guidance. When a decisive page is blocked, try an authoritative identifier or alternate first-party surface—DOI/PubMed, a registry, official journal or gazette, repository release, or exact title—before relying on a summary.
 
+For a decision-changing recent study, amendment, or release, discovery is not enough.
+Open its canonical record and verify the exact title, identifier, document or publication
+type, date, and result status. For medical literature, reconcile PMID, DOI, and trial
+registry identifiers; inspect the PubMed or publisher abstract sections; and search for a
+result publication before describing a registry entry or earlier protocol as unpublished.
+Record snippet-only access as `partial`, not `ok`.
+
 `search_count` means the number of actual search or discovery tool invocations. A batched call counts once. Do not count returned hits, snippets, opened pages, downloaded documents, or individual query objects inside a batch as separate calls. `queries_run` still lists every query string actually submitted.
 
 ## Access failures

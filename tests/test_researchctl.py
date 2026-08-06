@@ -482,6 +482,10 @@ class ResearchCtlTests(unittest.TestCase):
                 brief["verified_claims"][0]["source_ids"],
                 ["src_001", "src_002"],
             )
+            self.assertEqual(
+                brief["verified_claims"][0]["claim_scope"],
+                "synthesized",
+            )
             self.assertNotIn("notes", brief["sources"][0])
 
     def test_missing_counter_search_is_exit_one(self):
@@ -692,29 +696,88 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("src_999", result.stderr)
 
-    def test_strict_mode_requires_three_source_families(self):
+    def test_strict_mode_verifies_with_two_strong_source_families(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp), mode="strict")
             write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             result = run_ctl("validate", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 0)
-            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
-            self.assertEqual(len(unresolved), 1)
-            self.assertIn("< 3", unresolved[0]["status_reason"])
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
 
-    def test_strict_mode_verifies_with_three_families(self):
+    def test_attributed_high_risk_claim_accepts_one_directly_inspected_authority(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["access"] = {"method": "browser", "status": "ok"}
             returns = self.make_agent_return()
-            returns[0]["sources"].append(SRC_C)
-            returns[0]["claims"][0]["source_urls"].append(SRC_C["url"])
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "Article 53 directly requires the stated disclosure.",
+                    "claim_type": "legal",
+                    "claim_scope": "attributed",
+                    "attribution": "Article 53",
+                    "source_urls": [SRC_A["url"]],
+                }
+            )
             write_json(session / "artifacts" / "agent_returns.json", returns)
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             result = run_ctl("validate", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
+            verified = read_json(session / "outputs" / "verified_claims.json")
+            self.assertEqual(len(verified), 1)
+            self.assertEqual(verified[0]["claim_scope"], "attributed")
+            self.assertIn("직접 귀속", verified[0]["status_reason"])
+            brief = json.loads(run_ctl("brief", "--session", str(session)).stdout)
+            self.assertEqual(brief["verified_claims"][0]["claim_scope"], "attributed")
+            self.assertEqual(brief["verified_claims"][0]["attribution"], "Article 53")
+
+    def test_attributed_claim_requires_direct_source_access(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["access"] = {"method": "web-search", "status": "partial"}
+            returns = self.make_agent_return()
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "The named trial reported the stated endpoint.",
+                    "claim_scope": "attributed",
+                    "attribution": "named trial",
+                    "source_urls": [SRC_A["url"]],
+                }
+            )
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("직접 열람한", unresolved[0]["status_reason"])
+
+    def test_causal_claim_cannot_use_attributed_shortcut(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["access"] = {"method": "browser", "status": "ok"}
+            returns = self.make_agent_return()
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "The named trial proves that the intervention causes recovery.",
+                    "claim_type": "causal",
+                    "claim_scope": "attributed",
+                    "attribution": "named trial",
+                    "source_urls": [SRC_A["url"]],
+                }
+            )
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertIn("causal", unresolved[0]["status_reason"])
 
     def test_strict_mode_requires_two_strong_source_families(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -980,6 +1043,43 @@ class ResearchCtlTests(unittest.TestCase):
             researchctl._verified_claim_present(
                 claim,
                 "The defined metric was 42 in July 2026. [src_001]",
+            )
+        )
+
+    def test_attributed_verified_coverage_requires_visible_attribution(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": "Article 53 directly requires technical documentation and training-content disclosure.",
+            "claim_scope": "attributed",
+            "attribution": "Article 53",
+            "source_ids": ["src_001"],
+        }
+        self.assertFalse(
+            researchctl._verified_claim_present(
+                claim,
+                "The rule directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+        self.assertTrue(
+            researchctl._attributed_claim_generalized(
+                claim,
+                "The rule directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+        self.assertTrue(
+            researchctl._verified_claim_present(
+                claim,
+                "Article 53 directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+        self.assertFalse(
+            researchctl._attributed_claim_generalized(
+                claim,
+                "Article 53 directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
             )
         )
 

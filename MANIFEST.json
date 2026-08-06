@@ -1,7 +1,7 @@
 {
   "name": "insane-research-codex",
   "version": "3.2.0",
-  "generated_at": "2026-08-06T19:21:14Z",
+  "generated_at": "2026-08-06T19:42:40Z",
   "upstream": {
     "repository": "fivetaku/insane-research",
     "version": "2.8.2",
@@ -9,12 +9,12 @@
     "license": "MIT"
   },
   "file_count_excluding_manifest_and_checksums": 61,
-  "total_bytes_excluding_manifest_and_checksums": 423296,
+  "total_bytes_excluding_manifest_and_checksums": 452214,
   "files": [
     {
       "path": ".agents/skills/insane-research/SKILL.md",
-      "bytes": 18084,
-      "sha256": "95c187623716cb52a991e9a91539c0ba1e22ee3bbc3095fff26a3a47144db5bd"
+      "bytes": 20816,
+      "sha256": "2906da4245855d014c2df3a18b27a5799ec763f930139a1ca74c4e659e203a59"
     },
     {
       "path": ".agents/skills/insane-research/agents/openai.yaml",
@@ -38,28 +38,28 @@
     },
     {
       "path": ".agents/skills/insane-research/references/agent_return_schema.md",
-      "bytes": 5593,
-      "sha256": "704153aa9273f0ea411b0725240a5fcba4a79d71665470244f0d44742c993a61"
+      "bytes": 6598,
+      "sha256": "ef1de63e38cbf02cc4bff3162dced4f1d00bf3d2529f998e8f1a2bda7e8ca6c3"
     },
     {
       "path": ".agents/skills/insane-research/references/quality_rubric.md",
-      "bytes": 2429,
-      "sha256": "807c42cc1e8c1da1ed194b4b5e877f8a709a9da0189f935656402d587faaa8a6"
+      "bytes": 3025,
+      "sha256": "b447483cd0d4314e444c39b849640a4c49aa3c2aa22dc8842694175915bb865e"
     },
     {
       "path": ".agents/skills/insane-research/references/tool_strategy.md",
-      "bytes": 4273,
-      "sha256": "547d3e66f0f48d8327e2ee0eff17f6fba6c1ae8416cf4e55f7c8048fc28f07b8"
+      "bytes": 4767,
+      "sha256": "370a6e470eac8ba657c4a6293df4a46cf4809a03d0b05e5c3f9f548a7d9f21cb"
     },
     {
       "path": ".agents/skills/insane-research/references/workflow.md",
-      "bytes": 2312,
-      "sha256": "496949b2f603ba6a66d7ecc5c61313fc3eebce6eade20f18f62d0f41876f40e6"
+      "bytes": 2748,
+      "sha256": "ae90400b174afc93fc58a25fe4a43245e7ebc3d45575966d3c4dd8cdc5df0336"
     },
     {
       "path": ".agents/skills/insane-research/scripts/researchctl.py",
-      "bytes": 73351,
-      "sha256": "bcfe86a729e00651af5b2381cb653531ab09ae8b6f471ba33592cba89cc39ebd"
+      "bytes": 77955,
+      "sha256": "47ab47438c0c657a2d856dce84f6be22a259661a9ad4ab2df631586715495ecd"
     },
     {
       "path": ".codex-plugin/plugin.json",
@@ -68,28 +68,28 @@
     },
     {
       "path": ".codex/agents/academic-researcher.toml",
-      "bytes": 2213,
-      "sha256": "588f7f9958ae01042647c56731fd34b995363ef82a3dae346133352211aa9266"
+      "bytes": 2744,
+      "sha256": "ab616e3c397acff97eae18329981ca0fae2b7eb3108ff5d2914a2e3e6d60cb30"
     },
     {
       "path": ".codex/agents/claim-verifier.toml",
-      "bytes": 1848,
-      "sha256": "d9f9eb0021621e56f7a7d2556ee81ecb9f1e47e2160e5a704b42cafe15f92b55"
+      "bytes": 2323,
+      "sha256": "5deb1f49e2b880f69b9610299b5661b7aade0df0ca6f167d74a4fa6e61add32f"
     },
     {
       "path": ".codex/agents/official-source-researcher.toml",
-      "bytes": 2115,
-      "sha256": "1bb7a28ed771e67d015c4f7715ff72be9bdd5c650c05f2f57d8431c9f8b2c524"
+      "bytes": 2458,
+      "sha256": "d3a3dffaf20ed7d9a212c9c6ad5b84cc5a0c02439dbec8118fe27736e9b0a342"
     },
     {
       "path": ".codex/agents/report-editor.toml",
-      "bytes": 731,
-      "sha256": "babf1cbd0f188ee2d01ab77f7c932e4b2c7d7cef7c0ebb72664ea29c6adef35f"
+      "bytes": 801,
+      "sha256": "0b89d361e2a4d3c8e74ae99e596bc8a40622c7d1d5086a794d5bd2c41119b08c"
     },
     {
       "path": ".codex/agents/web-researcher.toml",
-      "bytes": 1954,
-      "sha256": "2dca81d0176a10d4ef1c8b1a0ac59211be0bc514b2abba1df97a7097fb49ae75"
+      "bytes": 2290,
+      "sha256": "5f3a066327ae0ff9ecaa562ae44d6923390f70f6b388c1f8162d845c32160372"
     },
     {
       "path": ".codex/config.toml.example",
@@ -118,8 +118,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 4445,
-      "sha256": "7e17ffbdedc18257a5bc4612bc8a8654b4a957c04c1b91fcd2ccfd708b1823d1"
+      "bytes": 4863,
+      "sha256": "32e0ca3e8b04ef47e6d2fb3eea5f45e40aa42a8255bb0899fe25954e83253942"
     },
     {
       "path": "LICENSE",
@@ -133,18 +133,18 @@
     },
     {
       "path": "PORTING_NOTES.md",
-      "bytes": 2592,
-      "sha256": "f80c0b25e63668eec79cd0a6df62dea43dd239cab4c43e970962f38fa1f49bef"
+      "bytes": 2830,
+      "sha256": "7383de786cfb69e9cc6e860b043c8708ee59f2860643cd75d7730ae10683282b"
     },
     {
       "path": "README.ko.md",
-      "bytes": 14487,
-      "sha256": "c3f27b0342fe261e38e93d15a4e85234288be664c4f27e9dd1826115a693dd67"
+      "bytes": 15716,
+      "sha256": "0b0cb7d59f09e99a3db1103be374c17405c37f3a80170bbceb9d43ec0c92885d"
     },
     {
       "path": "README.md",
-      "bytes": 6866,
-      "sha256": "6de3519f4b6e30c66a30d779c51c6a6bca6cce587fe7ef5b8dd81977e9b55ab6"
+      "bytes": 7650,
+      "sha256": "5cdc682ce83f86a6b8179b8a0109d261be26425c4fcb0ff17f1ac8617101518a"
     },
     {
       "path": "SECURITY.md",
@@ -253,8 +253,8 @@
     },
     {
       "path": "skills/insane-research/SKILL.md",
-      "bytes": 18084,
-      "sha256": "95c187623716cb52a991e9a91539c0ba1e22ee3bbc3095fff26a3a47144db5bd"
+      "bytes": 20816,
+      "sha256": "2906da4245855d014c2df3a18b27a5799ec763f930139a1ca74c4e659e203a59"
     },
     {
       "path": "skills/insane-research/agents/openai.yaml",
@@ -278,28 +278,28 @@
     },
     {
       "path": "skills/insane-research/references/agent_return_schema.md",
-      "bytes": 5593,
-      "sha256": "704153aa9273f0ea411b0725240a5fcba4a79d71665470244f0d44742c993a61"
+      "bytes": 6598,
+      "sha256": "ef1de63e38cbf02cc4bff3162dced4f1d00bf3d2529f998e8f1a2bda7e8ca6c3"
     },
     {
       "path": "skills/insane-research/references/quality_rubric.md",
-      "bytes": 2429,
-      "sha256": "807c42cc1e8c1da1ed194b4b5e877f8a709a9da0189f935656402d587faaa8a6"
+      "bytes": 3025,
+      "sha256": "b447483cd0d4314e444c39b849640a4c49aa3c2aa22dc8842694175915bb865e"
     },
     {
       "path": "skills/insane-research/references/tool_strategy.md",
-      "bytes": 4273,
-      "sha256": "547d3e66f0f48d8327e2ee0eff17f6fba6c1ae8416cf4e55f7c8048fc28f07b8"
+      "bytes": 4767,
+      "sha256": "370a6e470eac8ba657c4a6293df4a46cf4809a03d0b05e5c3f9f548a7d9f21cb"
     },
     {
       "path": "skills/insane-research/references/workflow.md",
-      "bytes": 2312,
-      "sha256": "496949b2f603ba6a66d7ecc5c61313fc3eebce6eade20f18f62d0f41876f40e6"
+      "bytes": 2748,
+      "sha256": "ae90400b174afc93fc58a25fe4a43245e7ebc3d45575966d3c4dd8cdc5df0336"
     },
     {
       "path": "skills/insane-research/scripts/researchctl.py",
-      "bytes": 73351,
-      "sha256": "bcfe86a729e00651af5b2381cb653531ab09ae8b6f471ba33592cba89cc39ebd"
+      "bytes": 77955,
+      "sha256": "47ab47438c0c657a2d856dce84f6be22a259661a9ad4ab2df631586715495ecd"
     },
     {
       "path": "tests/test_benchmark.py",
@@ -313,8 +313,8 @@
     },
     {
       "path": "tests/test_researchctl.py",
-      "bytes": 53425,
-      "sha256": "793e317c694ef355532a6e04358c391d51d217f25906e97f99e5a1527214206f"
+      "bytes": 58185,
+      "sha256": "c558a88d2dc3902f9a787f89074d26bee3bd4f29deb0cbc58bc31c1088d431f5"
     }
   ]
 }

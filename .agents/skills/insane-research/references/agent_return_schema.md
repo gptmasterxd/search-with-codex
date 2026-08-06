@@ -34,6 +34,8 @@ Use the canonical field names exactly. In particular, do not rename `quality_rat
       "text": "One atomic factual claim",
       "risk": "high",
       "claim_type": "numeric",
+      "claim_scope": "synthesized",
+      "attribution": "",
       "source_urls": [
         "https://example.org/document",
         "https://independent.example.net/data"
@@ -67,12 +69,16 @@ Use the canonical field names exactly. In particular, do not rename `quality_rat
 
 - Keep each claim atomic. Split a sentence containing two independently falsifiable statements.
 - `claim_type` must be exactly one of `numeric`, `legal`, `causal`, `financial`, `descriptive`, or `executable`.
+- `claim_scope` must be `synthesized` or `attributed`. Omission is normalized conservatively to `synthesized`.
+- Use `attributed` only when the claim narrowly states what a named statute, specification, official record, study, or dataset directly says. Put that visible name in `attribution`, and include the same words in `text` (for example, `"attribution": "Article 53"` and `"text": "Article 53 requires ..."`). Preserve this attribution during synthesis.
+- Use `synthesized` for any generalized effect, comparison, interpretation, prevalence, forecast, safety conclusion, or recommendation. Do not relabel a one-source generalized conclusion as attributed merely to pass the gate.
 - Use `risk: high` for numbers, dates, current status, law, regulation, finance, medicine, safety, causal language, material identity, or deadlines.
 - Keep evidence supporting the claim in `source_urls`.
 - Put sources that directly contradict and defeat the claim in `counter_source_urls`. Do not place the same source in both lists.
 - Use `counter_refuted: true` only when credible contrary evidence defeats the claim and `counter_source_urls` identifies that evidence. Standard mode requires A/B/C counter-evidence; strict high-risk mode requires A/B counter-evidence.
 - Use `conflicting: true` when credible sources disagree and the conflict remains unresolved.
 - `primary_source: true` means at least one linked source is the authoritative origin for that claim.
+- An attributed claim can pass with one A/B-grade authoritative origin only when its canonical document was directly opened and that source records `access.status: ok`. A snippet-only or blocked source must use `partial` or `blocked` and remains unresolved.
 - For an executable claim, add:
 
 ```json

@@ -18,8 +18,10 @@
 - [ ] Defeated claims identify separate `counter_source_urls`; supporting and counter-evidence are not conflated.
 - [ ] Primary-source attempts are documented.
 - [ ] Search dates and content validity dates are distinct.
+- [ ] Decision-changing recent primary identifiers were opened and checked for exact title, type, date, and result status; protocol/registry records were reconciled with later publications.
 - [ ] `search_count` counts tool invocations, while `queries_run` lists submitted query strings.
 - [ ] Source families identify duplicated underlying evidence.
+- [ ] Every claim declares `claim_scope`; attributed text visibly names its authority and synthesized conclusions retain independent evidence.
 - [ ] Dead ends and access limits are recorded.
 
 ## Merge and verification
@@ -32,6 +34,7 @@
 - [ ] `brief` was read once instead of replaying complete registry and status files.
 - [ ] Evidence was not edited after validation; if it was, `validate` was rerun.
 - [ ] Report body uses verified high-risk claims only.
+- [ ] Attributed claims remain visibly attributed and are not generalized beyond the inspected source.
 
 ## Finalization
 

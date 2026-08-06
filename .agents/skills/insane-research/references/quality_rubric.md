@@ -2,6 +2,11 @@
 
 Grades measure evidentiary fitness for the specific claim, not prestige alone.
 
+Also distinguish evidence form. A directly inspected authoritative source can verify an
+`attributed` statement about what that source says, but it does not by itself verify a
+`synthesized` real-world effect or interpretation. For example, one RCT can verify “the
+trial reported X”; a broader clinical-effect claim still needs independent synthesis.
+
 ## A — strongest primary evidence
 
 - peer-reviewed systematic review or high-quality primary study appropriate to the question;
@@ -44,3 +49,6 @@ When multiple agents return the same normalized URL with different grades, the m
 - A corporate filing is primary for what the company reported, not necessarily proof of an external causal claim.
 - A review article may be secondary even when published in a prestigious journal.
 - A news article does not become an independent source when it merely repeats an official announcement.
+- A search snippet cannot receive direct-inspection credit. When title, publication type,
+  version, result status, article section, or table context matters, open the canonical
+  record and record `access.status: ok` only after checking it.

@@ -28,6 +28,7 @@ VALID_GRADES = ("A", "B", "C", "D", "E")
 GRADE_RANK = {grade: index for index, grade in enumerate(VALID_GRADES)}
 VALID_RISKS = {"normal", "high"}
 VALID_CLAIM_TYPES = {"numeric", "legal", "causal", "financial", "descriptive", "executable"}
+VALID_CLAIM_SCOPES = {"synthesized", "attributed"}
 TRACKING_QUERY_KEYS = {
     "fbclid",
     "gclid",
@@ -638,12 +639,19 @@ def command_merge(args: argparse.Namespace) -> int:
             if claim_type not in VALID_CLAIM_TYPES:
                 warnings.append(f"{axis}: 주장 '{claim_text[:60]}' claim_type 오류 — descriptive 적용")
                 claim_type = "descriptive"
+            claim_scope = str(raw_claim.get("claim_scope") or "synthesized").strip().lower()
+            if claim_scope not in VALID_CLAIM_SCOPES:
+                warnings.append(f"{axis}: 주장 '{claim_text[:60]}' claim_scope 오류 — synthesized 적용")
+                claim_scope = "synthesized"
             valid_at = str(raw_claim.get("valid_at") or "").strip()
             counter_search = str(raw_claim.get("counter_search") or "").strip()
+            attribution = str(raw_claim.get("attribution") or "").strip()
             candidate: dict[str, Any] = {
                 "text": claim_text,
                 "risk": risk,
                 "claim_type": claim_type,
+                "claim_scope": claim_scope,
+                "attribution": attribution,
                 "source_ids": source_ids,
                 "counter_source_ids": counter_source_ids,
                 "counter_search": counter_search,
@@ -687,6 +695,22 @@ def command_merge(args: argparse.Namespace) -> int:
                 warnings.append(
                     f"중복 주장 claim_type 충돌: '{claim_text[:60]}' "
                     f"{existing['claim_type']} vs {candidate['claim_type']}"
+                )
+            if candidate["claim_scope"] != existing["claim_scope"]:
+                existing["conflicting"] = True
+                warnings.append(
+                    f"중복 주장 claim_scope 충돌: '{claim_text[:60]}' "
+                    f"{existing['claim_scope']} vs {candidate['claim_scope']}"
+                )
+            if attribution and not str(existing.get("attribution") or "").strip():
+                existing["attribution"] = attribution
+            elif (
+                attribution
+                and str(existing.get("attribution") or "").strip()
+                and attribution != str(existing.get("attribution") or "").strip()
+            ):
+                warnings.append(
+                    f"중복 attributed 주장 attribution 차이: '{claim_text[:60]}'"
                 )
             if counter_search and counter_search not in str(existing.get("counter_search") or ""):
                 previous = str(existing.get("counter_search") or "").strip()
@@ -874,6 +898,7 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
     }
     high_risk = claim.get("risk") == "high"
     claim_type = str(claim.get("claim_type") or "descriptive").lower()
+    claim_scope = str(claim.get("claim_scope") or "synthesized").lower()
     counter_search = str(claim.get("counter_search") or "").strip()
     has_primary = any(bool(source.get("primary")) for source in resolved)
 
@@ -913,18 +938,43 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
 
     if high_risk and not counter_search:
         return "unresolved", "high-risk 주장에 counter_search 누락", True
-    if len(families) < 2:
-        return "unresolved", f"독립 출처 계열 {len(families)}개 < 2", False
     if claim.get("conflicting"):
         return "unresolved", "출처 간 충돌 미해소", False
+    if claim_scope == "attributed":
+        if claim_type == "causal":
+            return "unresolved", "causal 주장은 attributed 범위로 검증할 수 없음", True
+        attribution = str(claim.get("attribution") or "").strip()
+        if not attribution:
+            return "unresolved", "attributed 주장에 attribution 누락", True
+        normalized_attribution = _normalize_for_match(attribution)
+        if (
+            not normalized_attribution
+            or normalized_attribution not in _normalize_for_match(str(claim.get("text") or ""))
+        ):
+            return "unresolved", "attribution이 attributed 주장 text에 명시되지 않음", True
+        directly_inspected = [
+            source
+            for source in resolved
+            if bool(source.get("primary"))
+            and str(source.get("quality_rating") or "").upper() in {"A", "B"}
+            and isinstance(source.get("access"), Mapping)
+            and str(source["access"].get("status") or "").lower() == "ok"
+        ]
+        if not directly_inspected:
+            return (
+                "unresolved",
+                "attributed 주장에 직접 열람한 A/B등급 권위 원출처가 없음",
+                False,
+            )
+        return "verified", "직접 귀속 주장 검증 계약 통과", False
+    if len(families) < 2:
+        return "unresolved", f"독립 출처 계열 {len(families)}개 < 2", False
     if high_risk and not has_primary:
         if claim.get("primary_source"):
             return "unresolved", "primary_source 표기가 source registry의 primary 출처로 뒷받침되지 않음", False
         return "unresolved", "high-risk 주장에 1차 출처 미도달", False
     if high_risk and not (grades & {"A", "B"}):
         return "unresolved", "high-risk 주장에 B등급 이상 출처 없음", False
-    if strict and high_risk and len(families) < 3:
-        return "unresolved", f"strict high-risk 주장에 독립 출처 계열 {len(families)}개 < 3", False
     if strict and high_risk and len(strong_families) < 2:
         return "unresolved", f"strict high-risk 주장에 A/B 출처 계열 {len(strong_families)}개 < 2", False
     return "verified", "검증 계약 통과", False
@@ -1012,9 +1062,14 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
         if claim_type not in VALID_CLAIM_TYPES:
             hard_errors.append(f"claim {claim_id}: 잘못된 claim_type '{claim_type}'")
             continue
+        claim_scope = str(claim.get("claim_scope") or "synthesized").strip().lower()
+        if claim_scope not in VALID_CLAIM_SCOPES:
+            hard_errors.append(f"claim {claim_id}: 잘못된 claim_scope '{claim_scope}'")
+            continue
         normalized_claim = dict(claim)
         normalized_claim["risk"] = risk
         normalized_claim["claim_type"] = claim_type
+        normalized_claim["claim_scope"] = claim_scope
         status, reason, violation = _classify_claim(normalized_claim, sources_by_id, strict)
         normalized_claim["status"] = status
         normalized_claim["status_reason"] = reason
@@ -1135,6 +1190,9 @@ def _brief_claim(claim: Mapping[str, Any]) -> dict[str, Any]:
         for key in (
             "claim_id",
             "text",
+            "claim_type",
+            "claim_scope",
+            "attribution",
             "source_ids",
             "counter_source_ids",
             "valid_at",
@@ -1227,9 +1285,32 @@ def _verified_claim_present(claim: Mapping[str, Any], body: str) -> bool:
     for chunk in chunks:
         if not _claim_text_present(claim, chunk):
             continue
+        if str(claim.get("claim_scope") or "") == "attributed":
+            attribution = _normalize_for_match(str(claim.get("attribution") or ""))
+            if not attribution or attribution not in _normalize_for_match(chunk):
+                continue
         if not source_ids:
             return True
         if source_ids & set(SOURCE_ID_RE.findall(chunk)):
+            return True
+    return False
+
+
+def _attributed_claim_generalized(claim: Mapping[str, Any], body: str) -> bool:
+    """Detect use of an attributed claim after its named authority was removed."""
+    if str(claim.get("claim_scope") or "") != "attributed":
+        return False
+    attribution = _normalize_for_match(str(claim.get("attribution") or ""))
+    if not attribution:
+        return False
+    source_ids = {str(value) for value in claim.get("source_ids") or []}
+    chunks = [chunk for chunk in re.split(r"\n\s*\n", body) if chunk.strip()]
+    for chunk in chunks:
+        if not _claim_text_present(claim, chunk):
+            continue
+        if source_ids and not (source_ids & set(SOURCE_ID_RE.findall(chunk))):
+            continue
+        if attribution not in _normalize_for_match(chunk):
             return True
     return False
 
@@ -1395,6 +1476,11 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
     uncovered_verified = [
         str(claim.get("claim_id")) for claim in verified if str(claim.get("claim_id")) not in covered_verified
     ]
+    generalized_attributed = [
+        str(claim.get("claim_id"))
+        for claim in verified
+        if _attributed_claim_generalized(claim, main_body)
+    ]
     citation_resolution_rate = 1.0 if not cited_ids else (len(cited_ids) - len(dangling)) / len(cited_ids)
     citation_url_coverage_rate = (
         1.0
@@ -1413,6 +1499,8 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
         failures.append(f"보고서에 URL이 없는 등록 인용 {len(missing_citation_urls)}건")
     if leaks:
         failures.append(f"미확정/반박 주장 본문 누출 {len(leaks)}건")
+    if generalized_attributed:
+        failures.append(f"직접 귀속 주장 attribution 누락·일반화 {len(generalized_attributed)}건")
     if verified and verified_coverage_rate < 0.50:
         failures.append("검증된 주장 본문 사용률이 50% 미만")
     verdict = "PASS" if not failures else "FAIL"
@@ -1436,12 +1524,14 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
             "orphan_sources": len(orphan_sources),
             "verified_claims": len(verified),
             "covered_verified_claims": len(covered_verified),
+            "generalized_attributed_claims": len(generalized_attributed),
             "leaked_claims": len(leaks),
         },
         "dangling_citations": dangling,
         "missing_citation_urls": missing_citation_urls,
         "orphan_sources": orphan_sources,
         "uncovered_verified_claims": uncovered_verified,
+        "generalized_attributed_claims": generalized_attributed,
         "leaks": leaks,
         "failures": failures,
     }
@@ -1585,6 +1675,8 @@ def command_schema(args: argparse.Namespace) -> int:
                 "text": "Atomic factual claim",
                 "risk": "normal|high",
                 "claim_type": "numeric|legal|causal|financial|descriptive|executable",
+                "claim_scope": "synthesized|attributed",
+                "attribution": "Required when claim_scope is attributed and must appear in text",
                 "source_urls": ["https://example.org/source", "https://independent.example.net/source"],
                 "counter_source_urls": ["https://counter.example.com/correction"],
                 "counter_search": "Required for high-risk non-executable claims",
