@@ -1215,6 +1215,12 @@ def _claim_text_present(claim: Mapping[str, Any], body: str) -> bool:
     return overlap >= 0.72
 
 
+def _claim_text_present_in_body(claim: Mapping[str, Any], body: str) -> bool:
+    """Detect one local assertion without combining words from unrelated paragraphs."""
+    chunks = [chunk for chunk in re.split(r"\n\s*\n", body) if chunk.strip()]
+    return any(_claim_text_present(claim, chunk) for chunk in chunks)
+
+
 def _verified_claim_present(claim: Mapping[str, Any], body: str) -> bool:
     source_ids = {str(value) for value in claim.get("source_ids") or []}
     chunks = [chunk for chunk in re.split(r"\n\s*\n", body) if chunk.strip()]
@@ -1377,7 +1383,7 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
     ]
     leaks: list[dict[str, str]] = []
     for claim in [*unresolved, *refuted]:
-        if _claim_text_present(claim, main_body):
+        if _claim_text_present_in_body(claim, main_body):
             leaks.append(
                 {
                     "claim_id": str(claim.get("claim_id") or ""),

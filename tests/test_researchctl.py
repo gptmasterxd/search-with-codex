@@ -983,6 +983,28 @@ class ResearchCtlTests(unittest.TestCase):
             )
         )
 
+    def test_unresolved_leak_matching_does_not_combine_unrelated_paragraphs(self):
+        claim = {
+            "claim_id": "clm_004",
+            "text": (
+                "Node 런타임은 tsconfig.json을 읽지 않으므로 paths와 downlevel 변환 등 "
+                "tsconfig 의존 기능은 실행 시 적용되지 않는다."
+            ),
+        }
+        body = (
+            "`paths` alias가 필요한 저장소는 기존 빌드를 유지한다.\n\n"
+            "런타임은 타입 검사를 대신하지 않으므로 CI에서 tsconfig 설정을 유지한다.\n\n"
+            "별도 번들러가 downlevel 변환을 담당할 수 있다."
+        )
+        self.assertFalse(researchctl._claim_text_present_in_body(claim, body))
+        self.assertTrue(
+            researchctl._claim_text_present_in_body(
+                claim,
+                "Node 런타임은 tsconfig.json을 읽지 않으므로 paths와 downlevel 변환 등 "
+                "tsconfig 의존 기능은 실행 시 적용되지 않는다.",
+            )
+        )
+
     def test_report_eval_rejects_unresolved_claim_leak(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))

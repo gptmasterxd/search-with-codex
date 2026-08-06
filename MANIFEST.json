@@ -1,7 +1,7 @@
 {
   "name": "insane-research-codex",
   "version": "3.2.0",
-  "generated_at": "2026-08-06T19:01:30Z",
+  "generated_at": "2026-08-06T19:21:14Z",
   "upstream": {
     "repository": "fivetaku/insane-research",
     "version": "2.8.2",
@@ -9,7 +9,7 @@
     "license": "MIT"
   },
   "file_count_excluding_manifest_and_checksums": 61,
-  "total_bytes_excluding_manifest_and_checksums": 421450,
+  "total_bytes_excluding_manifest_and_checksums": 423296,
   "files": [
     {
       "path": ".agents/skills/insane-research/SKILL.md",
@@ -58,8 +58,8 @@
     },
     {
       "path": ".agents/skills/insane-research/scripts/researchctl.py",
-      "bytes": 73027,
-      "sha256": "ae16e5d1bac18d5e2e75fe3b0f958c470359f202c82029513eb8104b35f10b46"
+      "bytes": 73351,
+      "sha256": "bcfe86a729e00651af5b2381cb653531ab09ae8b6f471ba33592cba89cc39ebd"
     },
     {
       "path": ".codex-plugin/plugin.json",
@@ -118,8 +118,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 4310,
-      "sha256": "febc14dc94f823027d5d9848ebface23ce66f17cde0c2bec32aea97b07d5a488"
+      "bytes": 4445,
+      "sha256": "7e17ffbdedc18257a5bc4612bc8a8654b4a957c04c1b91fcd2ccfd708b1823d1"
     },
     {
       "path": "LICENSE",
@@ -298,8 +298,8 @@
     },
     {
       "path": "skills/insane-research/scripts/researchctl.py",
-      "bytes": 73027,
-      "sha256": "ae16e5d1bac18d5e2e75fe3b0f958c470359f202c82029513eb8104b35f10b46"
+      "bytes": 73351,
+      "sha256": "bcfe86a729e00651af5b2381cb653531ab09ae8b6f471ba33592cba89cc39ebd"
     },
     {
       "path": "tests/test_benchmark.py",
@@ -313,8 +313,8 @@
     },
     {
       "path": "tests/test_researchctl.py",
-      "bytes": 52362,
-      "sha256": "8e5ffe58b22f2933cb0b3fef13ef75030229764633ecdf1321750dcf57533a9f"
+      "bytes": 53425,
+      "sha256": "793e317c694ef355532a6e04358c391d51d217f25906e97f99e5a1527214206f"
     }
   ]
 }

@@ -25,6 +25,7 @@
 - Documented supported wait timeouts and bounded recovery from pre-thread spawn failures.
 - Required the research-plan template to be read before patching.
 - Enumerated valid claim types and clarified unresolved-claim placement to prevent avoidable merge warnings and audit retries.
+- Scoped unresolved-claim fuzzy matching to local paragraphs so unrelated terms across a report cannot create a false leakage failure.
 
 ## 3.1.0 — 2026-08-06
 
