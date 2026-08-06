@@ -11,9 +11,9 @@ State the decision-relevant conclusion first. Distinguish sourced fact from infe
 
 ## Most important findings
 
-1. Finding with adjacent source marker. [src_001]
-2. Finding with adjacent source marker. [src_002]
-3. Finding with adjacent source marker. [src_003]
+1. Finding with adjacent source link. [src_001](https://example.org/primary)
+2. Finding with adjacent source link. [src_002](https://independent.example/analysis)
+3. Finding with adjacent source link. [src_003](https://official.example/guidance)
 
 ## Decision implications
 

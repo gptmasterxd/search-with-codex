@@ -5,7 +5,8 @@
 - [ ] Exact question, jurisdiction, date, and audience are recorded.
 - [ ] Standard or strict mode is selected.
 - [ ] Session is initialized and its absolute path is known.
-- [ ] Research plan contains 3–5 independent axes.
+- [ ] Research plan uses the smallest complete set: 2–3 standard axes or 3–4 strict axes.
+- [ ] Current medical, legal, regulatory, standards, or fast-moving technical work includes a 24-month direct-primary freshness sweep.
 
 ## Retrieval
 
@@ -23,7 +24,8 @@
 
 ## Merge and verification
 
-- [ ] Parent writes one `agent_returns.json`.
+- [ ] Parent saves one completed JSON file per axis under `artifacts/agent_returns/`.
+- [ ] No two operations patch the same agent-return file.
 - [ ] `merge` completed and warnings were reviewed.
 - [ ] Source registry and claim ledger are readable.
 - [ ] `validate` exited 0.
@@ -34,6 +36,7 @@
 
 - [ ] Executive summary and full report exist.
 - [ ] Source markers use registered IDs.
+- [ ] Every used source marker is a Markdown link to its registered canonical URL.
 - [ ] Each used verified claim has an adjacent supporting source marker.
 - [ ] Unresolved and refuted claims have dedicated annexes.
 - [ ] `finalize` exited 0 and `eval_report.json` says PASS.

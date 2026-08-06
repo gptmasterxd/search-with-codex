@@ -1,6 +1,6 @@
 # Subagent return contract
 
-Return one JSON object and no surrounding prose. The parent Codex will combine several objects and write `artifacts/agent_returns.json`.
+Return one JSON object and no surrounding prose. The parent Codex saves each completed object to a separate file under `artifacts/agent_returns/`; do not write or patch session files yourself.
 
 Use the canonical field names exactly. In particular, do not rename `quality_rating` to `quality`, `text` to `claim`, flatten `access`, or return `expand_leads` as strings. Before returning, self-check the top-level, source, claim, and expansion-lead keys against the example below.
 
@@ -101,6 +101,7 @@ The inverse is also possible: separate documents on one hosting domain can belon
 - One batched call containing several query objects counts as one call.
 - Search hits, snippets, opened pages, document reads, and downloads do not increment `search_count`.
 - `queries_run` contains every query string submitted, including strings grouped into a batch.
+- Normally return at most eight distinct decision-relevant sources and six material claims for one axis. Exceed this only when the parent names a strict-mode evidence gap that cannot otherwise be represented.
 
 ## Deterministic compatibility normalization
 

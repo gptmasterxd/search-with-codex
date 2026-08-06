@@ -12,7 +12,7 @@ Organize by the user's questions, not by subagent.
 
 | Claim ID | Conclusion | Supporting sources | Counter-evidence | Valid at | Status |
 |---|---|---|---|---|---|
-| clm_001 |  | [src_001] [src_002] | — |  | verified |
+| clm_001 |  | [src_001](https://example.org/primary) [src_002](https://independent.example/analysis) | — |  | verified |
 
 ## 5. Contradictions and limitations
 
@@ -30,4 +30,4 @@ List discarded or contradicted claims here.
 
 ## 10. Bibliography
 
-- [src_001] Organization or author. *Title*. Date. URL recorded in `sources/sources.jsonl`.
+- [src_001](https://example.org/primary) Organization or author. *Title*. Date.

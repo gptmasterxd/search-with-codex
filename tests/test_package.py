@@ -21,6 +21,10 @@ class PackageTests(unittest.TestCase):
     def test_plugin_manifest_points_to_skill_directory(self):
         manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["skills"], "./skills/")
+        self.assertEqual(manifest["author"]["name"], "gptmasterxd")
+        self.assertTrue(manifest["interface"]["displayName"])
+        self.assertTrue(manifest["interface"]["defaultPrompt"])
+        self.assertTrue(manifest["interface"]["capabilities"])
         self.assertTrue((ROOT / "skills" / "insane-research" / "SKILL.md").exists())
 
     def test_repository_skill_mirror_is_current(self):

@@ -17,6 +17,17 @@
 - 깨진 인용과 미확정·반박 주장 본문 누출 검사
 - 자동 별점, 숨은 최초 실행 작업, 텔레메트리, 네트워크 설치 없음
 
+## 3.2 벤치마크 기반 개선
+
+- 보고서에서 사용한 모든 출처 ID는 등록된 실제 URL을 독자가 볼 수 있어야 합니다. URL 없는 `[src_NNN]` 표시는 최종 감사를 통과하지 못합니다.
+- 병렬 조사 결과를 `artifacts/agent_returns/*.json`에 축별로 따로 저장해 단일 취합 파일의 동시 패치 충돌을 없앴습니다. 기존 3.1 단일 파일도 계속 읽습니다.
+- 최신 의료·법률·규제·표준·빠르게 변하는 기술 질문에는 기준일 이전 24개월의 직접 1차 근거 탐색을 포함합니다.
+- standard는 2–3축·최대 3개 조사 에이전트, strict는 3–4축·최대 4개로 시작하며 검색 호출과 반환량을 제한합니다.
+- 전체 레지스트리와 장부를 다시 읽는 대신 요약 상태와 경고부터 확인해 모델 컨텍스트 사용량을 줄였습니다.
+- Codex 공식 검증기가 요구하는 플러그인 작성자·인터페이스 메타데이터를 추가했습니다.
+
+이 변경은 실제 Codex로 수행한 [v3.1.0 대 기본 Codex 벤치마크](benchmarks/results/v3.1.0-vs-base.md)를 근거로 합니다. v3.1은 strict 최신성에서 강점을 보였지만 기본 Codex보다 토큰을 4.69배 사용했고, 한 보고서는 실제 URL을 노출하지 않았으며, 의료 평가에서는 최신 직접 시험 하나를 놓쳤습니다.
+
 ## 3.1 안정성 보강
 
 - `eval` 실행 시 검증 서명을 다시 계산합니다. 검증 후 출처 레지스트리, 주장 장부, verified/unresolved/refuted 산출물 중 하나라도 바뀌면 평가를 중단하고 재검증을 요구합니다.
@@ -34,6 +45,10 @@
 ### 3.0 세션에서 올릴 때
 
 3.0에서 이미 생성한 세션은 그대로 보존할 수 있지만, `counter_refuted: true`인 주장에는 별도의 `counter_source_urls`가 없으므로 3.1 검증에서 `unresolved` 또는 절차 위반으로 분류될 수 있습니다. 해당 주장만 반증 출처를 다시 수집해 `artifacts/agent_returns.json`에 기록한 뒤 `merge → validate → finalize`를 다시 실행하십시오. 3.1은 검증 서명 형식도 강화했으므로 과거 `verification_report.json`과 `eval_report.json`을 신뢰하지 않고 재검증하는 것이 정상 동작입니다.
+
+### 3.1 세션에서 올릴 때
+
+기존 `artifacts/agent_returns.json`은 그대로 사용할 수 있습니다. 새 조사부터는 완료된 축마다 `artifacts/agent_returns/01-official.json` 같은 별도 파일로 저장하십시오. 디렉터리에 JSON 파일이 하나라도 있으면 단일 구형 파일보다 우선합니다. 보고서의 모든 인용을 `[src_001](https://example.org/source)` 같은 실제 링크로 바꾼 뒤 `validate → finalize`를 다시 실행해야 합니다.
 
 ## 설치
 
@@ -121,18 +136,18 @@ Codex Cloud에서는 에이전트 인터넷 접근을 환경 설정에서 허용
 max_concurrent_threads_per_session = 4
 ```
 
-이 패키지는 기본적으로 최대 네 개의 읽기 중심 조사 축을 병렬로 사용하도록 작성되어 있습니다. 실제 상한은 사용자 환경과 Codex 설정을 따릅니다.
+이 패키지는 standard에서 최대 세 개, strict에서 최대 네 개의 읽기 중심 조사 축을 병렬로 사용하도록 작성되어 있습니다. 실제 상한은 사용자 환경과 Codex 설정을 따릅니다.
 
 ## 조사 흐름
 
 ```text
 질문 범위 설정
   ↓
-3–5개 독립 조사 축 설계
+standard 2–3개 또는 strict 3–4개 독립 조사 축 설계
   ↓
 Codex 서브에이전트 병렬 조사
   ↓
-부모 Codex가 JSON 결과 단일 취합
+완료 축별 JSON 파일 독립 저장
   ↓
 URL 중복 제거·출처 계열·주장 장부 생성
   ↓
@@ -150,7 +165,10 @@ RESEARCH/<session>/
 ├── state.json
 ├── artifacts/
 │   ├── research_plan.md
-│   ├── agent_returns.json
+│   ├── agent_returns/
+│   │   ├── 01-official.json
+│   │   └── 02-academic.json
+│   ├── agent_returns.json  # 구형 세션 호환용
 │   ├── claim_ledger.jsonl
 │   ├── query_log.md
 │   └── expansion_log.md
@@ -190,7 +208,7 @@ RESEARCH/<session>/
 ./bin/insane-research merge --session RESEARCH/<session>
 ```
 
-입력 파일은 `artifacts/agent_returns.json`입니다. 형식은 다음 명령으로 확인할 수 있습니다.
+기본 입력은 `artifacts/agent_returns/*.json`이며 완료된 축마다 파일 하나를 저장합니다. 해당 디렉터리가 비어 있으면 구형 `artifacts/agent_returns.json`을 읽습니다. 형식은 다음 명령으로 확인할 수 있습니다.
 
 ```bash
 ./bin/insane-research schema
@@ -221,6 +239,7 @@ RESEARCH/<session>/
 검사 항목:
 
 - `[src_001]` 형식의 인용 ID가 레지스트리에 존재하는지
+- 사용한 모든 출처 ID에 등록된 실제 URL이 보고서 링크로 노출됐는지
 - 미확정·반박 주장이 일반 본문에 섞였는지
 - 검증된 주장들이 실제 본문에 사용됐는지
 - 검증된 주장과 이를 뒷받침하는 인용이 같은 문단 또는 표 행에 있는지
@@ -256,7 +275,7 @@ python3 scripts/update_release_metadata.py --check
 python3 scripts/verify_release.py
 ```
 
-테스트는 URL 안전성·중복 제거, 출처 등급 정규화, 지지·반증 출처 분리, 검증 서명 신선도, 주장 검증 종료 코드, strict 모드, 실행 증적, 깨진 인용, 미확정 주장 누출, 설치 패키지 동기화를 확인합니다.
+테스트는 URL 안전성·중복 제거, 실제 인용 URL 노출, 축별 반환 병합, 출처 등급 정규화, 지지·반증 출처 분리, 검증 서명 신선도, 주장 검증 종료 코드, strict 모드, 실행 증적, 깨진 인용, 미확정 주장 누출, 설치 패키지 동기화를 확인합니다.
 
 ## 한계
 

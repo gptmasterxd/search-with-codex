@@ -151,6 +151,12 @@ class ResearchCtlTests(unittest.TestCase):
             researchctl.normalize_url("https://[2001:db8::1]:8443/a/"),
             "https://[2001:db8::1]:8443/a",
         )
+        self.assertEqual(
+            researchctl.report_urls(
+                "See [source](https://example.com/report/?utm_source=test)."
+            ),
+            {"https://example.com/report"},
+        )
 
     def test_init_creates_resumable_session(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -169,12 +175,50 @@ class ResearchCtlTests(unittest.TestCase):
             session = Path(payload["session"])
             self.assertTrue((session / "state.json").exists())
             self.assertTrue((session / "artifacts" / "research_plan.md").exists())
+            self.assertTrue((session / "artifacts" / "agent_returns").is_dir())
             workspace_session = Path(payload["workspace_session"])
             self.assertEqual(workspace_session.resolve(), session)
             self.assertTrue(str(workspace_session).startswith(str(Path(temp))))
             state = read_json(session / "state.json")
             self.assertEqual(state["mode"], "strict")
-            self.assertEqual(state["schema_version"], 2)
+            self.assertEqual(state["schema_version"], 3)
+
+    def test_merge_prefers_isolated_per_agent_files_over_legacy_aggregate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()
+            write_json(
+                session / "artifacts" / "agent_returns.json",
+                {"returns": "invalid legacy value that must be ignored"},
+            )
+            write_json(session / "artifacts" / "agent_returns" / "01-official.json", returns[0])
+            write_json(
+                session / "artifacts" / "agent_returns" / "02-cross-check.json",
+                {"returns": [returns[1]]},
+            )
+
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["input_mode"], "per-agent-directory")
+            self.assertEqual(
+                payload["input_files"],
+                [
+                    "artifacts/agent_returns/01-official.json",
+                    "artifacts/agent_returns/02-cross-check.json",
+                ],
+            )
+            self.assertEqual(payload["agent_returns"], 2)
+            self.assertEqual(len(read_jsonl(session / "sources" / "sources.jsonl")), 2)
+
+    def test_merge_reports_invalid_per_agent_file_path(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            bad_path = session / "artifacts" / "agent_returns" / "01-bad.json"
+            write_json(bad_path, {"returns": "not-an-array"})
+            result = run_ctl("merge", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(str(bad_path), result.stderr)
 
     def test_merge_deduplicates_identical_url_conservatively_and_logs_queries(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -774,7 +818,9 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report) "
+                "[src_002](https://b.example.org/analysis)\n",
                 encoding="utf-8",
             )
             ledger = session / "artifacts" / "claim_ledger.jsonl"
@@ -836,7 +882,9 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report) "
+                "[src_002](https://b.example.org/analysis)\n",
                 encoding="utf-8",
             )
             self.assertEqual(run_ctl("eval", "--session", str(session)).returncode, 0)
@@ -863,13 +911,39 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n\n"
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report/?utm_campaign=test) "
+                "[src_002](https://b.example.org/analysis)\n\n"
                 "## Unresolved claims\n\nNone.\n\n## Refuted claims\n\nNone.\n",
                 encoding="utf-8",
             )
             result = run_ctl("eval", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(read_json(session / "outputs" / "eval_report.json")["verdict"], "PASS")
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["verdict"], "PASS")
+            self.assertEqual(report["metrics"]["citation_url_coverage_rate"], 1.0)
+            self.assertEqual(report["missing_citation_urls"], [])
+
+    def test_report_eval_rejects_source_markers_without_visible_urls(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                encoding="utf-8",
+            )
+
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["verdict"], "FAIL")
+            self.assertEqual(report["metrics"]["citation_url_coverage_rate"], 0.0)
+            self.assertEqual(
+                [item["source_id"] for item in report["missing_citation_urls"]],
+                ["src_001", "src_002"],
+            )
 
     def test_verified_coverage_requires_claim_text_and_adjacent_citation(self):
         claim = {
@@ -923,8 +997,10 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nNo verified conclusion. [src_001]\n\n"
-                "## Unresolved claims\n\nThe defined metric was 42 in July 2026. [src_001]\n",
+                "# Report\n\nNo verified conclusion. "
+                "[src_001](https://a.example.com/report)\n\n"
+                "## Unresolved claims\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report)\n",
                 encoding="utf-8",
             )
             result = run_ctl("eval", "--session", str(session))
@@ -940,7 +1016,8 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe agency published a report in July. [src_001]\n",
+                "# Report\n\nThe agency published a report in July. "
+                "[src_001](https://a.example.com/report)\n",
                 encoding="utf-8",
             )
             result = run_ctl("eval", "--session", str(session))

@@ -1,6 +1,6 @@
 [project]
 name = "insane-research-codex"
-version = "3.1.0"
+version = "3.2.0"
 description = "Codex-native audited multi-agent deep research skill"
 requires-python = ">=3.9"
 license = { text = "MIT" }

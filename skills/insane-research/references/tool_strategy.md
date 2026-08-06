@@ -35,7 +35,9 @@ Vary both the wording and the retrieval surface:
 
 Do not spend the budget on superficial paraphrases. Log the queries actually run.
 
-Batch independent query objects in one tool call when the schema supports it. Unless the parent supplies a smaller limit, use at most 10 search-tool calls for a standard axis or 14 for a strict axis. The parent may authorize up to four additional calls only for a named unresolved high-risk claim and a concrete new route. Stop after two consecutive calls through meaningfully different routes add no usable source, independent source family, or material contradiction.
+Batch independent query objects in one tool call when the schema supports it. Unless the parent supplies a smaller limit, use at most 6 search-tool calls for a standard axis or 8 for a strict axis. A task-wide user limit is shared across all axes and must be divided by the parent, never copied to every agent. The parent may authorize up to two additional calls only for a named unresolved high-risk claim and a concrete new route, and never beyond the user's cap. Stop after two consecutive calls through meaningfully different routes add no usable source, independent source family, or material contradiction.
+
+For current medical, legal, regulatory, standards, or fast-moving technical work, reserve part of the budget for a direct-primary freshness sweep covering the cutoff date and preceding 24 months. Search for new trials, amendments, corrections, superseding releases, and newly effective guidance. When a decisive page is blocked, try an authoritative identifier or alternate first-party surface—DOI/PubMed, a registry, official journal or gazette, repository release, or exact title—before relying on a summary.
 
 `search_count` means the number of actual search or discovery tool invocations. A batched call counts once. Do not count returned hits, snippets, opened pages, downloaded documents, or individual query objects inside a batch as separate calls. `queries_run` still lists every query string actually submitted.
 

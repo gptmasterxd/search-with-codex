@@ -15,6 +15,17 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - One standard-library CLI for sessions, merge, verification, and report audit
 - Source-family independence, strict mode, counter-searches, primary-source checks, executable proof, signed verification state, and unresolved/refuted leakage checks
 
+## 3.2 benchmark-driven improvements
+
+- Every cited registry ID must expose its canonical URL in the user-facing report. Bare `[src_NNN]` markers now fail the final audit.
+- Parallel results are saved as isolated `artifacts/agent_returns/*.json` files, removing the shared aggregate-file patch conflict while retaining legacy-session support.
+- Current medical, legal, regulatory, standards, and fast-moving technical work includes a direct-primary freshness sweep over the cutoff date and preceding 24 months.
+- Standard mode starts with 2–3 axes and at most three research agents; strict mode starts with 3–4 axes and at most four. Per-axis search and return budgets are bounded.
+- Merge review starts from compact status and warning outputs instead of replaying the complete registry and ledger into model context.
+- The plugin manifest now follows the validated Codex author and interface schema.
+
+These changes address the reviewed [v3.1.0 versus base Codex benchmark](benchmarks/results/v3.1.0-vs-base.md), where v3.1 retained strong strict-mode currentness but used 4.69× the tokens of base Codex, exposed no usable links in one report, and missed a recent direct medical trial.
+
 ## 3.1 reliability hardening
 
 - A standalone report audit recomputes the verification signature and rejects any source registry, claim ledger, or status-output change made after validation.
@@ -32,6 +43,10 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 ### Upgrading existing 3.0 sessions
 
 Existing 3.0 session directories can be retained, but claims with `counter_refuted: true` do not yet have separate `counter_source_urls`. Under 3.1 those claims may become `unresolved` or a process violation until defeating evidence is collected and recorded. Update only the affected entries in `artifacts/agent_returns.json`, then rerun `merge → validate → finalize`. Version 3.1 also strengthens the verification signature, so invalidating and regenerating prior `verification_report.json` and `eval_report.json` is expected.
+
+### Upgrading existing 3.1 sessions
+
+Existing aggregate `artifacts/agent_returns.json` files remain valid. New work should save one completed return per axis under `artifacts/agent_returns/`; when that directory contains JSON files, it takes precedence over the legacy aggregate. Rerun `validate → finalize` after adding canonical Markdown links such as `[src_001](https://example.org/source)` to every cited source.
 
 ## Install
 
@@ -68,7 +83,8 @@ In a Codex installation with enough skills to trigger a skill-description contex
 ## Runtime workflow
 
 ```text
-scope → plan 3–5 axes → parallel read-only subagents → parent merge
+scope → plan 2–3 standard or 3–4 strict axes → parallel read-only subagents
+→ isolated per-axis returns → parent merge
 → deterministic claim gate → verified-only synthesis → final report audit
 ```
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.2.0 — 2026-08-07
+
+### Added
+
+- User-visible citation URL coverage metric and hard final-audit gate.
+- Per-agent return directory with deterministic merge order and path-specific errors.
+- Current-primary freshness sweeps for medical, legal, regulatory, standards, and fast-moving technical topics.
+- Reviewed real-Codex benchmark harness and sanitized v3.1 baseline results.
+- Validated Codex plugin author and interface metadata.
+
+### Changed
+
+- Standard planning defaults to 2–3 axes and at most three concurrent research agents; strict mode defaults to 3–4 axes and at most four.
+- Per-axis discovery defaults are 6 standard / 8 strict calls, with compact decision-relevant return limits.
+- Parent review starts from merge status and warnings, then inspects only targeted registry or ledger entries.
+- Reports use linked source markers and omit self-certifying audit language from substantive findings.
+- Session schema is now version 3; legacy aggregate agent returns remain supported.
+
+### Fixed
+
+- Removed concurrent patch contention on one shared `agent_returns.json`.
+- Documented supported wait timeouts and bounded recovery from pre-thread spawn failures.
+- Required the research-plan template to be read before patching.
+
 ## 3.1.0 — 2026-08-06
 
 ### Fixed
