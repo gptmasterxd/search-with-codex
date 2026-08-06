@@ -59,6 +59,12 @@ JUDGE_MAX_SEARCH_CALLS = 4
 NONFATAL_DIAGNOSTICS = (
     "Skill descriptions were shortened to fit the 2% skills context budget.",
 )
+USAGE_LIMIT_RE = re.compile(
+    r"(?:you(?:'|’)?ve hit your usage limit|usage limit.*"
+    r"(?:purchase more credits|try again))",
+    re.IGNORECASE,
+)
+INFRASTRUCTURE_FAILURE_KINDS = frozenset({"usage_limit"})
 
 
 class BenchmarkError(RuntimeError):
@@ -330,6 +336,16 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
     malformed = 0
+
+    def record_diagnostic(message: str) -> None:
+        target = (
+            warnings
+            if any(message.startswith(prefix) for prefix in NONFATAL_DIAGNOSTICS)
+            else errors
+        )
+        if message not in target:
+            target.append(message)
+
     if not path.is_file():
         return {
             "thread_id": thread_id,
@@ -357,16 +373,20 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
                 value = event["usage"].get(key)
                 if isinstance(value, int):
                     usage[key] = value
+        if event.get("type") == "error":
+            record_diagnostic(str(event.get("message") or "unknown Codex error"))
+        if event.get("type") == "turn.failed":
+            failure = event.get("error")
+            if isinstance(failure, dict):
+                record_diagnostic(str(failure.get("message") or "unknown Codex error"))
+            elif failure:
+                record_diagnostic(str(failure))
         item = event.get("item")
         if event.get("type") == "item.completed" and isinstance(item, dict):
             item_type = str(item.get("type") or "unknown")
             item_types[item_type] += 1
             if item_type == "error":
-                message = str(item.get("message") or "unknown Codex error")
-                if any(message.startswith(prefix) for prefix in NONFATAL_DIAGNOSTICS):
-                    warnings.append(message)
-                else:
-                    errors.append(message)
+                record_diagnostic(str(item.get("message") or "unknown Codex error"))
     tool_item_types = {
         key: value
         for key, value in sorted(item_types.items())
@@ -385,6 +405,25 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
         "warnings": warnings,
         "malformed_jsonl_lines": malformed,
     }
+
+
+def execution_failure_kind(
+    *,
+    returncode: int,
+    timed_out: bool,
+    transcript_metrics: dict[str, Any],
+) -> str | None:
+    errors = transcript_metrics.get("errors")
+    messages = "\n".join(str(item) for item in errors) if isinstance(errors, list) else ""
+    if USAGE_LIMIT_RE.search(messages):
+        return "usage_limit"
+    if timed_out:
+        return "timeout"
+    if returncode != 0:
+        return "process_error"
+    if messages:
+        return "transcript_error"
+    return None
 
 
 def copy_research_outputs(project: Path, outputs: Path) -> dict[str, Any]:
@@ -599,6 +638,65 @@ def prepare_eval_inputs(iteration: Path, eval_case: dict[str, Any]) -> None:
     write_text(eval_dir / "prompt.txt", str(eval_case["prompt"]) + "\n")
 
 
+def validate_resume_metadata(
+    existing: dict[str, Any],
+    current: dict[str, Any],
+) -> None:
+    keys = (
+        "repo_root",
+        "candidate_skill_tree_sha256",
+        "model",
+        "codex",
+        "codex_version",
+        "evals_path",
+        "eval_ids",
+        "configurations",
+        "baseline_isolation",
+    )
+    mismatches = [key for key in keys if existing.get(key) != current.get(key)]
+    if mismatches:
+        raise BenchmarkError(
+            "cannot resume because benchmark contract changed: "
+            + ", ".join(mismatches)
+        )
+
+
+def archive_run_attempt(run_dir: Path) -> Path | None:
+    if not run_dir.is_dir() or not any(run_dir.iterdir()):
+        return None
+    attempts = run_dir / "attempts"
+    attempts.mkdir(parents=True, exist_ok=True)
+    index = 1
+    while (attempts / f"attempt-{index}").exists():
+        index += 1
+    archive = attempts / f"attempt-{index}"
+    archive.mkdir()
+    for child in tuple(run_dir.iterdir()):
+        if child == attempts:
+            continue
+        shutil.move(str(child), archive / child.name)
+    return archive
+
+
+def successful_execution(run_dir: Path) -> bool:
+    execution_path = run_dir / "execution.json"
+    if not execution_path.is_file():
+        return False
+    execution = load_json(execution_path)
+    if not isinstance(execution, dict):
+        return False
+    metrics = parse_jsonl_metrics(run_dir / "transcript.jsonl")
+    failure_kind = execution_failure_kind(
+        returncode=int(execution.get("returncode", 1)),
+        timed_out=bool(execution.get("timed_out")),
+        transcript_metrics=metrics,
+    )
+    execution["transcript_metrics"] = metrics
+    execution["failure_kind"] = failure_kind
+    write_json(execution_path, execution)
+    return failure_kind is None
+
+
 def run_one(
     *,
     repo_root: Path,
@@ -645,12 +743,18 @@ def run_one(
         timeout_seconds=timeout_seconds,
     )
     transcript_metrics = parse_jsonl_metrics(transcript_path)
+    failure_kind = execution_failure_kind(
+        returncode=returncode,
+        timed_out=timed_out,
+        transcript_metrics=transcript_metrics,
+    )
     execution = {
         "configuration": configuration,
         "returncode": returncode,
         "timed_out": timed_out,
         "duration_seconds": round(duration, 6),
         "transcript_metrics": transcript_metrics,
+        "failure_kind": failure_kind,
         "command": args,
     }
     write_json(run_dir / "execution.json", execution)
@@ -691,6 +795,7 @@ def run_one(
         "eval_name": eval_case["name"],
         "configuration": configuration,
         "returncode": returncode,
+        "failure_kind": failure_kind,
         "pass_rate": grading["summary"]["pass_rate"],
     }
 
@@ -707,7 +812,7 @@ def run_benchmark(args: argparse.Namespace) -> Path:
         sorted(str(record["pluginId"]) for record in plugin_records)
     )
     disabled_skills = external_skill_paths(plugin_records)
-    metadata = {
+    current_metadata = {
         "created_at": utc_now(),
         "repo_root": str(repo_root),
         "repo_commit": git_commit(repo_root),
@@ -729,15 +834,57 @@ def run_benchmark(args: argparse.Namespace) -> Path:
             "codex_home_changed": False,
         },
     }
-    write_json(iteration / "run_metadata.json", metadata)
+    metadata_path = iteration / "run_metadata.json"
+    if args.resume:
+        if not metadata_path.is_file():
+            raise BenchmarkError(
+                f"cannot resume without benchmark metadata: {metadata_path}"
+            )
+        metadata = load_json(metadata_path)
+        if not isinstance(metadata, dict):
+            raise BenchmarkError(f"invalid benchmark metadata: {metadata_path}")
+        validate_resume_metadata(metadata, current_metadata)
+        history = metadata.setdefault("resume_history", [])
+        if not isinstance(history, list):
+            raise BenchmarkError("invalid benchmark metadata: resume_history must be an array")
+        history.append(
+            {
+                "resumed_at": utc_now(),
+                "repo_commit": current_metadata["repo_commit"],
+            }
+        )
+        write_json(metadata_path, metadata)
+    else:
+        metadata = current_metadata
+        write_json(metadata_path, metadata)
     for eval_case in evals:
         prepare_eval_inputs(iteration, eval_case)
-    jobs = [
+    all_jobs = [
         (eval_case, configuration)
         for eval_case in evals
         for configuration in CONFIGURATIONS
     ]
-    results: list[dict[str, Any]] = []
+    previous_results: dict[tuple[str, str], dict[str, Any]] = {}
+    results_path = iteration / "run_results.json"
+    if args.resume and results_path.is_file():
+        raw_results = load_json(results_path)
+        if isinstance(raw_results, list):
+            previous_results = {
+                (str(item.get("eval_name")), str(item.get("configuration"))): item
+                for item in raw_results
+                if isinstance(item, dict)
+                and item.get("eval_name")
+                and item.get("configuration")
+            }
+    jobs: list[tuple[dict[str, Any], str]] = []
+    for eval_case, configuration in all_jobs:
+        run_dir = iteration / str(eval_case["name"]) / configuration
+        if args.resume and successful_execution(run_dir):
+            continue
+        if args.resume:
+            archive_run_attempt(run_dir)
+        jobs.append((eval_case, configuration))
+    current_results: dict[tuple[str, str], dict[str, Any]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_workers) as executor:
         futures = {
             executor.submit(
@@ -764,17 +911,39 @@ def run_benchmark(args: argparse.Namespace) -> Path:
                     "configuration": configuration,
                     "error": str(exc),
                 }
-            results.append(result)
+            current_results[(str(eval_name), str(configuration))] = result
             print(json.dumps(result, ensure_ascii=False), flush=True)
-    write_json(iteration / "run_results.json", results)
+    results = []
+    for eval_case, configuration in all_jobs:
+        key = (str(eval_case["name"]), str(configuration))
+        result = current_results.get(key) or previous_results.get(key)
+        if result is None:
+            result = {
+                "eval_id": eval_case["id"],
+                "eval_name": eval_case["name"],
+                "configuration": configuration,
+                "error": "missing benchmark result",
+            }
+        results.append(result)
+    write_json(results_path, results)
     failures = [
         result
         for result in results
         if result.get("error") or result.get("returncode") != 0
     ]
     if failures:
+        infrastructure = sum(
+            result.get("failure_kind") in INFRASTRUCTURE_FAILURE_KINDS
+            for result in failures
+        )
+        detail = (
+            f" ({infrastructure} infrastructure interruption(s))"
+            if infrastructure
+            else ""
+        )
         raise BenchmarkError(
-            f"{len(failures)} benchmark arm(s) failed; inspect {iteration / 'run_results.json'}"
+            f"{len(failures)} benchmark arm(s) failed{detail}; "
+            f"inspect {iteration / 'run_results.json'}"
         )
     return iteration
 
@@ -797,6 +966,11 @@ def refresh_derived_run_data(
             transcript_path = run_dir / "transcript.jsonl"
             transcript_metrics = parse_jsonl_metrics(transcript_path)
             execution["transcript_metrics"] = transcript_metrics
+            execution["failure_kind"] = execution_failure_kind(
+                returncode=int(execution.get("returncode", 1)),
+                timed_out=bool(execution.get("timed_out")),
+                transcript_metrics=transcript_metrics,
+            )
             write_json(execution_path, execution)
             duration = float(execution.get("duration_seconds") or 0)
             write_json(
@@ -1288,6 +1462,11 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--judge-timeout-seconds", type=int, default=600)
     parser.add_argument("--max-workers", type=int, default=6)
     parser.add_argument("--judge-workers", type=int, default=3)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="preserve successful arms and rerun only missing or failed arms",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

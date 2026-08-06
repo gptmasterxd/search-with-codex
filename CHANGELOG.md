@@ -12,6 +12,7 @@
 - Validated Codex plugin author and interface metadata.
 - Authority-aware `claim_scope` contract separating source-attributed facts from synthesized conclusions.
 - Canonical-identifier checks for recent decision-changing primary records, including medical protocol/result reconciliation.
+- Resumable benchmark execution that preserves successful arms and archives failed attempts under a stable candidate-skill contract.
 
 ### Changed
 
@@ -49,6 +50,7 @@
 - Added official NCBI E-utilities/PMC structured-data fallback before closing a blocked PubMed record as abstract- or result-inaccessible.
 - Made report citation auditing resolve descriptive Markdown labels by registered canonical URL and accept natural attributed paraphrases with adjacent authority and source, removing the incentive to paste English ledger sentences into translated reports.
 - Prioritized later or larger methodologically strongest syntheses and their material harm results for scarce claim slots before redundant older reviews or indirect evidence.
+- Classified Codex account usage limits as benchmark infrastructure interruptions and captured top-level JSONL failures that were previously absent from transcript error metrics.
 
 ## 3.1.0 — 2026-08-06
 

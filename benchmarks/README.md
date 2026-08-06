@@ -36,6 +36,23 @@ python3 benchmarks/benchmark.py report \
 `all` runs the three stages in order. Keeping them separate makes interruption,
 inspection, and selective re-grading practical.
 
+If a Codex process is interrupted by an account usage limit, timeout, or other
+external failure, resume the same iteration without rerunning successful arms:
+
+```bash
+python3 benchmarks/benchmark.py run \
+  --workspace "$WORKSPACE" \
+  --model gpt-5.6-sol \
+  --resume
+```
+
+The resume contract requires the same model, Codex version, evaluation set,
+isolation settings, and candidate skill-tree digest. Repository commits may
+differ only when the candidate skill tree is byte-identical; each resume commit
+is recorded in `run_metadata.json`. Failed attempts are retained under the
+arm's `attempts/` directory and infrastructure failures such as `usage_limit`
+remain explicitly classified rather than being treated as research quality.
+
 The runner launches every with-skill and base arm in one bounded worker pool.
 Each run stores:
 

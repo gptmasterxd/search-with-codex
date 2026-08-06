@@ -166,6 +166,70 @@ class BenchmarkHarnessTests(unittest.TestCase):
             self.assertEqual(metrics["errors"], [])
             self.assertEqual(len(metrics["warnings"]), 1)
 
+    def test_usage_limit_is_an_infrastructure_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "events.jsonl"
+            message = (
+                "You've hit your usage limit. Visit Codex settings to purchase "
+                "more credits or try again tomorrow."
+            )
+            path.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"type": "error", "message": message}),
+                        json.dumps(
+                            {
+                                "type": "turn.failed",
+                                "error": {"message": message},
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            metrics = benchmark.parse_jsonl_metrics(path)
+            self.assertEqual(metrics["errors"], [message])
+            self.assertEqual(
+                benchmark.execution_failure_kind(
+                    returncode=1,
+                    timed_out=False,
+                    transcript_metrics=metrics,
+                ),
+                "usage_limit",
+            )
+
+    def test_resume_metadata_allows_commit_change_when_skill_is_identical(self) -> None:
+        existing = {
+            "repo_root": "/repo",
+            "repo_commit": "old",
+            "candidate_skill_tree_sha256": "same-tree",
+            "model": "model",
+            "codex": "codex",
+            "codex_version": "codex 1",
+            "evals_path": "/repo/evals.json",
+            "eval_ids": [1],
+            "configurations": ["with_skill", "without_skill"],
+            "baseline_isolation": {"disabled_plugins": []},
+        }
+        current = {**existing, "repo_commit": "new"}
+        benchmark.validate_resume_metadata(existing, current)
+        changed = {**current, "candidate_skill_tree_sha256": "changed-tree"}
+        with self.assertRaises(benchmark.BenchmarkError):
+            benchmark.validate_resume_metadata(existing, changed)
+
+    def test_archived_retry_preserves_the_failed_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp) / "run"
+            run_dir.mkdir()
+            (run_dir / "execution.json").write_text("{}", encoding="utf-8")
+            (run_dir / "project").mkdir()
+            archive = benchmark.archive_run_attempt(run_dir)
+            self.assertIsNotNone(archive)
+            self.assertTrue((archive / "execution.json").is_file())
+            self.assertTrue((archive / "project").is_dir())
+            self.assertEqual([path.name for path in run_dir.iterdir()], ["attempts"])
+
     def test_atomic_writes_are_safe_for_concurrent_same_path_updates(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "shared.json"
