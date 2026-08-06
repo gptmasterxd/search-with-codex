@@ -47,11 +47,13 @@ python3 benchmarks/benchmark.py run \
 ```
 
 The resume contract requires the same model, Codex version, evaluation set,
-isolation settings, and candidate skill-tree digest. Repository commits may
-differ only when the candidate skill tree is byte-identical; each resume commit
-is recorded in `run_metadata.json`. Failed attempts are retained under the
-arm's `attempts/` directory and infrastructure failures such as `usage_limit`
-remain explicitly classified rather than being treated as research quality.
+isolation settings, and Git-tracked candidate skill tree. Repository commits
+may differ only when that skill tree is byte-identical; each resume commit is
+recorded in `run_metadata.json`. Runtime cache files such as `__pycache__` are
+excluded from the auxiliary content digest. Failed attempts are retained under
+the arm's `attempts/` directory and infrastructure failures such as
+`usage_limit` remain explicitly classified rather than being treated as
+research quality.
 
 The runner launches every with-skill and base arm in one bounded worker pool.
 Each run stores:

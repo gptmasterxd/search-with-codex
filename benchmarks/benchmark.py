@@ -184,7 +184,14 @@ def external_skill_paths(
 
 def tree_digest(root: Path) -> str:
     digest = hashlib.sha256()
-    for path in sorted((item for item in root.rglob("*") if item.is_file()), key=str):
+    files = (
+        item
+        for item in root.rglob("*")
+        if item.is_file()
+        and "__pycache__" not in item.parts
+        and item.suffix not in {".pyc", ".pyo"}
+    )
+    for path in sorted(files, key=str):
         relative = path.relative_to(root).as_posix().encode("utf-8")
         digest.update(len(relative).to_bytes(8, "big"))
         digest.update(relative)
@@ -192,6 +199,13 @@ def tree_digest(root: Path) -> str:
         digest.update(len(payload).to_bytes(8, "big"))
         digest.update(payload)
     return digest.hexdigest()
+
+
+def candidate_git_tree(repo_root: Path, commit: str = "HEAD") -> str:
+    return command_output(
+        ["git", "rev-parse", f"{commit}:skills/insane-research"],
+        repo_root,
+    )
 
 
 def ensure_clean_repo(repo_root: Path) -> None:
@@ -641,10 +655,11 @@ def prepare_eval_inputs(iteration: Path, eval_case: dict[str, Any]) -> None:
 def validate_resume_metadata(
     existing: dict[str, Any],
     current: dict[str, Any],
+    *,
+    repo_root: Path | None = None,
 ) -> None:
     keys = (
         "repo_root",
-        "candidate_skill_tree_sha256",
         "model",
         "codex",
         "codex_version",
@@ -654,6 +669,29 @@ def validate_resume_metadata(
         "baseline_isolation",
     )
     mismatches = [key for key in keys if existing.get(key) != current.get(key)]
+    existing_git_tree = existing.get("candidate_skill_git_tree")
+    if (
+        not isinstance(existing_git_tree, str)
+        and repo_root is not None
+        and isinstance(existing.get("repo_commit"), str)
+    ):
+        try:
+            existing_git_tree = candidate_git_tree(
+                repo_root,
+                str(existing["repo_commit"]),
+            )
+        except BenchmarkError:
+            existing_git_tree = None
+    current_git_tree = current.get("candidate_skill_git_tree")
+    if isinstance(existing_git_tree, str) and isinstance(current_git_tree, str):
+        candidate_matches = existing_git_tree == current_git_tree
+    else:
+        candidate_matches = (
+            existing.get("candidate_skill_tree_sha256")
+            == current.get("candidate_skill_tree_sha256")
+        )
+    if not candidate_matches:
+        mismatches.append("candidate_skill_tree")
     if mismatches:
         raise BenchmarkError(
             "cannot resume because benchmark contract changed: "
@@ -819,6 +857,7 @@ def run_benchmark(args: argparse.Namespace) -> Path:
         "candidate_skill_tree_sha256": tree_digest(
             repo_root / "skills" / "insane-research"
         ),
+        "candidate_skill_git_tree": candidate_git_tree(repo_root),
         "model": args.model,
         "codex": args.codex,
         "codex_version": command_output([args.codex, "--version"], repo_root),
@@ -843,7 +882,11 @@ def run_benchmark(args: argparse.Namespace) -> Path:
         metadata = load_json(metadata_path)
         if not isinstance(metadata, dict):
             raise BenchmarkError(f"invalid benchmark metadata: {metadata_path}")
-        validate_resume_metadata(metadata, current_metadata)
+        validate_resume_metadata(
+            metadata,
+            current_metadata,
+            repo_root=repo_root,
+        )
         history = metadata.setdefault("resume_history", [])
         if not isinstance(history, list):
             raise BenchmarkError("invalid benchmark metadata: resume_history must be an array")

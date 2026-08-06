@@ -203,7 +203,8 @@ class BenchmarkHarnessTests(unittest.TestCase):
         existing = {
             "repo_root": "/repo",
             "repo_commit": "old",
-            "candidate_skill_tree_sha256": "same-tree",
+            "candidate_skill_tree_sha256": "legacy-cache-sensitive-digest",
+            "candidate_skill_git_tree": "same-tree",
             "model": "model",
             "codex": "codex",
             "codex_version": "codex 1",
@@ -212,11 +213,25 @@ class BenchmarkHarnessTests(unittest.TestCase):
             "configurations": ["with_skill", "without_skill"],
             "baseline_isolation": {"disabled_plugins": []},
         }
-        current = {**existing, "repo_commit": "new"}
+        current = {
+            **existing,
+            "repo_commit": "new",
+            "candidate_skill_tree_sha256": "stable-digest",
+        }
         benchmark.validate_resume_metadata(existing, current)
-        changed = {**current, "candidate_skill_tree_sha256": "changed-tree"}
+        changed = {**current, "candidate_skill_git_tree": "changed-tree"}
         with self.assertRaises(benchmark.BenchmarkError):
             benchmark.validate_resume_metadata(existing, changed)
+
+    def test_candidate_digest_ignores_python_cache_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "script.py").write_text("print('same')\n", encoding="utf-8")
+            first = benchmark.tree_digest(root)
+            cache = root / "__pycache__"
+            cache.mkdir()
+            (cache / "script.cpython-314.pyc").write_bytes(b"runtime cache")
+            self.assertEqual(benchmark.tree_digest(root), first)
 
     def test_archived_retry_preserves_the_failed_attempt(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

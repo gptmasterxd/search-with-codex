@@ -51,6 +51,7 @@
 - Made report citation auditing resolve descriptive Markdown labels by registered canonical URL and accept natural attributed paraphrases with adjacent authority and source, removing the incentive to paste English ledger sentences into translated reports.
 - Prioritized later or larger methodologically strongest syntheses and their material harm results for scarce claim slots before redundant older reviews or indirect evidence.
 - Classified Codex account usage limits as benchmark infrastructure interruptions and captured top-level JSONL failures that were previously absent from transcript error metrics.
+- Made benchmark candidate identity use the Git-tracked skill tree and exclude Python runtime caches from auxiliary digests, so unchanged source can resume across validation runs.
 
 ## 3.1.0 — 2026-08-06
 
