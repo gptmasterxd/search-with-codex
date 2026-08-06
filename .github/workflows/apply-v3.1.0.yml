@@ -38,8 +38,13 @@ jobs:
           base64 --decode /tmp/upgrade.b64 > /tmp/upgrade.tar.gz
           echo "fb2cbc1ed2c370aa8e13bf10bb75ced956cc481fe019435762baa6604be3e54d  /tmp/upgrade.tar.gz" | sha256sum -c -
           tar -xzf /tmp/upgrade.tar.gz -C "$GITHUB_WORKSPACE"
-
           rm -rf .upgrade-payload
+
+          # This one-shot workflow is not part of the release package. Hide it
+          # only while the exact-set release metadata checks run, then restore
+          # it unchanged so the source-only commit does not touch a workflow.
+          mv .github/workflows/apply-v3.1.0.yml /tmp/apply-v3.1.0.yml
+          trap 'mv /tmp/apply-v3.1.0.yml .github/workflows/apply-v3.1.0.yml 2>/dev/null || true' EXIT
 
           python3 -m compileall -q skills scripts tests
           python3 -m unittest discover -s tests -v
@@ -47,6 +52,9 @@ jobs:
           python3 scripts/update_release_metadata.py --check
           python3 scripts/verify_release.py
           git diff --check
+
+          mv /tmp/apply-v3.1.0.yml .github/workflows/apply-v3.1.0.yml
+          trap - EXIT
 
           # GITHUB_TOKEN cannot create or update workflow files. The validated
           # CI workflow is added separately through the GitHub contents API.
