@@ -1,0 +1,148 @@
+{
+  "benchmark_id": "v3.1.0-vs-base-r2",
+  "release": {
+    "version": "3.1.0",
+    "commit": "34bff602e1712e66f954a90f36e40a30fd00ed06",
+    "candidate_skill_tree_sha256": "e9ab9735405ea06adab32259c41add3ce96819b69124f1171334523a50e91b4c"
+  },
+  "harness": {
+    "executor_commit": "413874b9d2ec3b8cfebaccb9e6116dfb091f0d19",
+    "analyzer_commit": "1282b35cf80525c87b01e0b1f1ca4dc723f731ed",
+    "codex_version": "codex-cli 0.146.1",
+    "executor_model": "gpt-5.6-sol",
+    "analyzer_model": "gpt-5.6-sol",
+    "analyzer_web_search": true,
+    "analyzer_search_call_limit": 4,
+    "eval_count": 3,
+    "runs_per_configuration": 1,
+    "baseline_isolation": {
+      "ignore_user_config": true,
+      "ignore_rules": true,
+      "external_plugins_disabled": true,
+      "non_system_skills_disabled": true,
+      "system_skills_retained": true,
+      "codex_home_changed": false
+    }
+  },
+  "aggregate": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.916667,
+        "stddev": 0.117851
+      },
+      "quality_score": {
+        "mean": 4.366667,
+        "stddev": 0.471405
+      },
+      "time_seconds": {
+        "mean": 587.358524,
+        "stddev": 64.157
+      },
+      "tokens": {
+        "mean": 1644473.666667,
+        "stddev": 383857.89272
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0
+      },
+      "quality_score": {
+        "mean": 4.666667,
+        "stddev": 0.235702
+      },
+      "time_seconds": {
+        "mean": 173.850386,
+        "stddev": 22.348803
+      },
+      "tokens": {
+        "mean": 350609.333333,
+        "stddev": 66161.283564
+      }
+    },
+    "candidate_minus_base": {
+      "pass_rate": -0.083333,
+      "quality_score": -0.3,
+      "time_seconds": 413.508138,
+      "tokens": 1293864.333334,
+      "token_ratio": 4.69033
+    }
+  },
+  "evaluations": [
+    {
+      "id": 1,
+      "name": "python-free-threading-standard",
+      "winner": "without_skill",
+      "with_skill": {
+        "pass_rate": 0.75,
+        "quality_score": 3.7,
+        "time_seconds": 560.535731,
+        "tokens": 1133521
+      },
+      "without_skill": {
+        "pass_rate": 1.0,
+        "quality_score": 4.5,
+        "time_seconds": 154.391852,
+        "tokens": 315411
+      },
+      "decisive_finding": "The candidate used registry source IDs but exposed no usable URLs, while base Codex linked primary sources directly."
+    },
+    {
+      "id": 2,
+      "name": "tka-analgesia-strict-medical",
+      "winner": "without_skill",
+      "with_skill": {
+        "pass_rate": 1.0,
+        "quality_score": 4.7,
+        "time_seconds": 675.833789,
+        "tokens": 2058745
+      },
+      "without_skill": {
+        "pass_rate": 1.0,
+        "quality_score": 5.0,
+        "time_seconds": 162.010519,
+        "tokens": 293130
+      },
+      "decisive_finding": "The candidate handled directness, overlapping evidence, MCID uncertainty, and access limits well, but missed a recent direct 2025 outpatient randomized trial and a recent scoping review."
+    },
+    {
+      "id": 3,
+      "name": "eu-ai-act-open-source-strict-legal",
+      "winner": "with_skill",
+      "with_skill": {
+        "pass_rate": 1.0,
+        "quality_score": 4.7,
+        "time_seconds": 525.706053,
+        "tokens": 1741155
+      },
+      "without_skill": {
+        "pass_rate": 1.0,
+        "quality_score": 4.5,
+        "time_seconds": 205.148788,
+        "tokens": 443287
+      },
+      "decisive_finding": "The candidate found Regulation (EU) 2026/1744 and the amended Article 56(6), which base Codex missed, but it was less complete on penalties and enforcement."
+    }
+  ],
+  "auditability": {
+    "with_skill_phase_7_passed": 3,
+    "with_skill_phase_7_total": 3
+  },
+  "blind_wins": {
+    "with_skill": 1,
+    "without_skill": 2,
+    "ties": 0
+  },
+  "observed_runtime_friction": [
+    "Subagent spawning intermittently failed before a thread was created.",
+    "Wait calls attempted timeout values below the runtime minimum.",
+    "Several agents attempted concurrent patches to one shared agent_returns.json file.",
+    "One research-plan patch used stale template context."
+  ],
+  "interpretation_limits": [
+    "Only three evaluation topics were run.",
+    "Each configuration was run once per evaluation, so the sample is directional rather than statistically conclusive.",
+    "Phase-7 auditability is reported separately and does not count as a universal output-quality win."
+  ]
+}
