@@ -1,6 +1,6 @@
 ---
 name: insane-research
-description: Conduct deep, multi-source research with Codex subagents, source triangulation, high-risk claim verification, resumable sessions, and an audited report. Use for deep research, literature reviews, market or technical investigations, due diligence, current-policy research, and requests such as 딥리서치, 심층 조사, 논문 포함 조사, or research this thoroughly.
+description: Run comprehensive multi-source research with Codex subagents, strict high-risk verification, resumable sessions, citations, and audited reports. Use for deep research, literature reviews, due diligence, and requests such as 딥리서치 or 심층 조사.
 ---
 
 # Insane Research for Codex
@@ -33,7 +33,7 @@ If `doctor` fails, report the exact failing check. Do not continue with a fabric
 ## Invocation modes
 
 - **Standard:** most research. Two independent source families are required for a verified claim.
-- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. Strict high-risk claims require three independent source families.
+- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. Strict high-risk claims require three independent source families, including at least two A/B-grade source families.
 - **Resume:** when a session path or session ID is supplied, read its `state.json`, artifacts, source registry, and existing outputs. Continue from the first incomplete phase rather than restarting.
 - **Status:** run `python3 "$CTL" status --root RESEARCH`.
 
@@ -65,6 +65,8 @@ python3 "$CTL" init \
 
 Use `--mode strict` when strict mode applies. Capture the session path printed by the command.
 
+The controller also exposes a workspace-preserving path as `workspace_session` in JSON output and as `작업 경로` in text output. Use that path for repository file-edit tools. In particular, do not replace a workspace-visible `/tmp/...` path with its macOS `/private/tmp/...` canonical alias. The canonical `session` path remains safe for CLI arguments.
+
 ## Phase 2 — Build a retrieval plan
 
 Edit `<session>/artifacts/research_plan.md` before searching. Break the question into 3–5 independent axes. A good plan separates evidence types rather than assigning several agents the same broad query.
@@ -83,7 +85,7 @@ For each axis, define:
 - preferred source types;
 - relevant date range and language;
 - likely failure modes;
-- 6–12 meaningfully different queries, not trivial paraphrases.
+- 6–10 meaningfully different query strings, not trivial paraphrases.
 
 Include the current date in freshness-sensitive searches. For historical research, preserve the historical cutoff and do not overwrite it with current material.
 
@@ -98,6 +100,10 @@ Use Codex subagents for independent, read-heavy research axes. Prefer the bundle
 
 Run no more than four research subagents concurrently unless the environment has a lower configured limit. Keep the parent focused on orchestration and source-family deduplication. Do not assign overlapping write tasks.
 
+When selecting a named custom role, do not combine `agent_type` with a full-history fork. Spawn it without inherited conversation history (`fork_turns: "none"` when that field exists) and provide a self-contained prompt containing the topic, mode, axis, date, evidence requirements, search budget, and return contract. Inspect the active spawn-tool schema rather than assuming field names.
+
+Use a default discovery budget of at most 10 search-tool calls per axis in standard mode and 14 in strict mode. One search-tool call may contain several independent query objects when the active schema supports batching. The parent may grant up to four additional calls only for a named unresolved high-risk claim and a concrete new evidence route. Page opens, document reads, search results, and query strings inside one batch are not additional search-tool calls.
+
 Each subagent must:
 
 1. stay within one axis;
@@ -106,13 +112,19 @@ Each subagent must:
 4. inspect source dates and distinguish publication date from the date the content is valid for;
 5. prefer primary sources before aggregators;
 6. run at least one counter-search for each high-risk claim;
-7. return exactly one JSON object matching `references/agent_return_schema.md`;
-8. include all queries actually run and any dead ends;
-9. never write to the shared research session.
+7. keep supporting evidence in `source_urls` and contrary evidence in `counter_source_urls`; never reuse a supporting source as the sole proof of refutation;
+8. return exactly one JSON object matching `references/agent_return_schema.md`;
+9. include all queries actually run and any dead ends;
+10. inspect each active tool's schema and pass the documented structured arguments rather than guessing a raw-string call;
+11. count `search_count` as actual search or discovery tool invocations, not result items, opened pages, or individual query objects inside one batched call;
+12. stop the axis when two consecutive search calls through meaningfully different routes add no usable source, independent family, or material contradiction;
+13. never write to the shared research session.
 
 A subagent prompt should include this completion condition:
 
-> Continue until the assigned axis has been answered, the best reachable primary sources have been checked, material contradictions are recorded, and remaining gaps are explicit. Return only the agreed JSON object; do not modify files.
+> Continue until the assigned axis has been answered, the best reachable primary sources have been checked, material contradictions are recorded, and remaining gaps are explicit, or the supplied discovery budget or no-new-evidence stop condition is reached. Return only the agreed JSON object; do not modify files.
+
+While subagents are active, wait for their returns instead of duplicating their assigned searches in the parent. After an interruption, resume the existing session, retain every completed axis return, and rerun only work that did not return a valid object.
 
 ### Internet or tool unavailability
 
@@ -158,7 +170,9 @@ Review:
 - `artifacts/query_log.md`
 - `artifacts/expansion_log.md`
 
-Resolve meaningful merge warnings. A warning about an unregistered claim URL means the source must be added and the merge rerun, or the claim must remain unsupported and unresolved.
+Write returned agent objects to `agent_returns.json` without manually rewriting substantive evidence. The merger records narrow, lossless compatibility aliases under `normalizations`; these do not require a new search. If a return is missing evidence or has an unsupported shape that would lose meaning, ask that same agent for one formatting-only retry with no new search.
+
+Resolve meaningful merge warnings. A warning about an unregistered supporting or counter-evidence URL means the source must be added and the merge rerun, or the claim must remain unsupported and unresolved.
 
 ## Phase 5 — Deterministic claim gate before synthesis
 
@@ -173,7 +187,7 @@ Use `--strict` only to override a standard session into strict verification.
 Exit codes:
 
 - `0`: gate completed and no required process step is missing;
-- `1`: correctable process violation, such as a missing counter-search or executable proof;
+- `1`: correctable process violation, such as a missing counter-search, missing separately registered counter-evidence, or incomplete executable proof;
 - `2`: hard data error, such as malformed JSON, a missing source ID, or an invalid grade.
 
 The gate writes:
@@ -184,6 +198,10 @@ The gate writes:
 - `outputs/verification_report.json`
 
 Only a verified high-risk claim may appear as an unqualified assertion in the report body. Unresolved and refuted claims belong in clearly labeled annex sections and may not be reframed as verified.
+
+For `counter_refuted: true`, the ledger must contain separately registered `counter_source_ids`. They may not overlap the claim's supporting `source_ids`. Standard mode requires at least one A/B/C counter-evidence source; strict high-risk mode requires A/B counter-evidence. A free-text `counter_search` note alone never proves refutation.
+
+The verification signature covers the source registry, claim ledger, and all verified/unresolved/refuted outputs. `merge` invalidates any previous signature. Standalone `eval` also recomputes the signature and refuses stale evidence; rerun `validate` after any evidence edit.
 
 ### Executable claims
 
@@ -232,7 +250,7 @@ The report audit checks:
 
 - whether every cited source ID exists;
 - whether unresolved or refuted claims leaked into the assertive body;
-- whether verified claims are actually used;
+- whether verified claims are actually used with an adjacent supporting source marker, rather than counting citations elsewhere in the report;
 - how many registered sources were never cited.
 
 A nonzero result is not a formatting inconvenience. Read `outputs/eval_report.json`, fix the report or evidence, and rerun. Do not mark the session complete while the audit verdict is `FAIL`.

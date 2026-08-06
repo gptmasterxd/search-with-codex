@@ -139,9 +139,18 @@ class ResearchCtlTests(unittest.TestCase):
             researchctl.normalize_url("HTTPS://Example.COM:443/a/?utm_source=x&b=2&a=1#frag"),
             "https://example.com/a?a=1&b=2",
         )
+        self.assertTrue(researchctl.domains_equivalent("example.com", "www.example.com"))
+        self.assertFalse(researchctl.domains_equivalent("example.com", "www.example.net"))
         self.assertEqual(researchctl.normalize_url("https://example.com:not-a-port/x"), "")
         self.assertEqual(researchctl.normalize_url("https://[broken/x"), "")
         self.assertEqual(researchctl.normalize_url("not a valid host/path"), "")
+        self.assertEqual(researchctl.normalize_url("file:///etc/passwd"), "")
+        self.assertEqual(researchctl.normalize_url("ftp://example.com/archive"), "")
+        self.assertEqual(researchctl.normalize_url("https://user:secret@example.com/report"), "")
+        self.assertEqual(
+            researchctl.normalize_url("https://[2001:db8::1]:8443/a/"),
+            "https://[2001:db8::1]:8443/a",
+        )
 
     def test_init_creates_resumable_session(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -160,9 +169,14 @@ class ResearchCtlTests(unittest.TestCase):
             session = Path(payload["session"])
             self.assertTrue((session / "state.json").exists())
             self.assertTrue((session / "artifacts" / "research_plan.md").exists())
-            self.assertEqual(read_json(session / "state.json")["mode"], "strict")
+            workspace_session = Path(payload["workspace_session"])
+            self.assertEqual(workspace_session.resolve(), session)
+            self.assertTrue(str(workspace_session).startswith(str(Path(temp))))
+            state = read_json(session / "state.json")
+            self.assertEqual(state["mode"], "strict")
+            self.assertEqual(state["schema_version"], 2)
 
-    def test_merge_deduplicates_urls_normalizes_grade_and_logs_queries(self):
+    def test_merge_deduplicates_identical_url_conservatively_and_logs_queries(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
             write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
@@ -177,8 +191,71 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(claims[0]["source_ids"], ["src_001", "src_002"])
             query_log = (session / "artifacts" / "query_log.md").read_text(encoding="utf-8")
             self.assertIn("DUP of", query_log)
-            self.assertIn("Reported search calls: 3", query_log)
+            self.assertIn("Agent-reported search-tool calls: 3", query_log)
+            self.assertIn("Logged query strings: 3", query_log)
+            self.assertIn("Unique logged query strings: 2", query_log)
             self.assertIn("Check definitions", (session / "artifacts" / "expansion_log.md").read_text(encoding="utf-8"))
+
+    def test_merge_canonicalizes_observed_agent_aliases_without_parent_rewrite(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            legacy_source = {
+                "url": SRC_A["url"],
+                "title": SRC_A["title"],
+                "source_family": SRC_A["source_family"],
+                "quality": "A",
+                "primary": True,
+                "published_at": SRC_A["published_at"],
+                "accessed_at": "2026-08-06T16:34:12Z",
+                "key_points": ["Primary result", "Important limitation"],
+                "access_method": "publisher HTML",
+                "access_status": "partial",
+            }
+            legacy_claim = {
+                "claim": "Routine intervention does not improve the defined outcome.",
+                "risk": "high",
+                "causal": True,
+                "source_urls": [SRC_A["url"]],
+                "counter_source_urls": [],
+                "counter_search": "Searched for a credible benefit and found none",
+                "counter_refuted": False,
+                "conflicting": False,
+                "primary_source": True,
+                "valid_at": "2026-07-01",
+            }
+            returns = [
+                {
+                    "axis": "legacy-agent",
+                    "sources": [legacy_source],
+                    "claims": [legacy_claim],
+                    "queries_run": ["legacy alias check"],
+                    "search_count": 1,
+                    "expand_leads": ["Check a newly registered trial"],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["warnings"], [])
+            self.assertTrue(any("quality→quality_rating" in item for item in payload["normalizations"]))
+            self.assertTrue(any("claim→text" in item for item in payload["normalizations"]))
+            self.assertTrue(any("string canonicalized" in item for item in payload["normalizations"]))
+
+            source = read_jsonl(session / "sources" / "sources.jsonl")[0]
+            self.assertEqual(source["quality_rating"], "A")
+            self.assertEqual(source["observed_at"], "2026-08-06T16:34:12Z")
+            self.assertEqual(source["notes"], "Primary result; Important limitation")
+            self.assertEqual(
+                source["access"],
+                {"method": "publisher HTML", "status": "partial"},
+            )
+            claim = read_jsonl(session / "artifacts" / "claim_ledger.jsonl")[0]
+            self.assertEqual(claim["text"], legacy_claim["claim"])
+            self.assertEqual(claim["claim_type"], "causal")
+            expansion_log = (session / "artifacts" / "expansion_log.md").read_text(encoding="utf-8")
+            self.assertIn("Check a newly registered trial", expansion_log)
 
     def test_merge_corrects_declared_domain_from_url(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -193,7 +270,24 @@ class ResearchCtlTests(unittest.TestCase):
             sources = read_jsonl(session / "sources" / "sources.jsonl")
             self.assertEqual(sources[0]["domain"], "a.example.com")
 
-    def test_conflicting_families_on_one_domain_collapse_to_domain(self):
+    def test_www_declared_domain_alias_matches_url_host(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()[:1]
+            www_url = "https://www.a.example.com/report"
+            returns[0]["sources"][0]["url"] = www_url
+            returns[0]["sources"][0]["domain"] = "a.example.com"
+            returns[0]["claims"][0]["source_urls"][0] = www_url
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(any("URL host" in warning for warning in payload["warnings"]))
+            sources = read_jsonl(session / "sources" / "sources.jsonl")
+            self.assertEqual(sources[0]["domain"], "www.a.example.com")
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+
+    def test_distinct_sources_on_one_domain_preserve_grade_and_family(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
             returns = [
@@ -206,6 +300,7 @@ class ResearchCtlTests(unittest.TestCase):
                             "url": "https://a.example.com/second",
                             "title": "Second page",
                             "source_family": "family-two",
+                            "quality_rating": "C",
                         },
                     ],
                     "claims": [
@@ -226,13 +321,30 @@ class ResearchCtlTests(unittest.TestCase):
             result = run_ctl("merge", "--session", str(session), "--json")
             self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads(result.stdout)
-            self.assertTrue(any("source_family 충돌" in warning for warning in payload["warnings"]))
+            self.assertFalse(any("source_family 충돌" in warning for warning in payload["warnings"]))
             sources = read_jsonl(session / "sources" / "sources.jsonl")
-            self.assertEqual({source["source_family"] for source in sources}, {"a.example.com"})
+            self.assertEqual(
+                {(source["source_family"], source["quality_rating"]) for source in sources},
+                {("family-one", "A"), ("family-two", "C")},
+            )
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
-            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
-            self.assertEqual(len(unresolved), 1)
-            self.assertIn("< 2", unresolved[0]["status_reason"])
+            verified = read_json(session / "outputs" / "verified_claims.json")
+            self.assertEqual(len(verified), 1)
+
+    def test_conflicting_families_for_identical_url_collapse_to_domain(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()
+            returns[0]["sources"][0]["source_family"] = "family-one"
+            returns[1]["sources"][0]["source_family"] = "family-two"
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertTrue(any("동일 URL source_family 충돌" in warning for warning in payload["warnings"]))
+            sources = read_jsonl(session / "sources" / "sources.jsonl")
+            a_source = next(source for source in sources if source["domain"] == "a.example.com")
+            self.assertEqual(a_source["source_family"], "a.example.com")
 
     def test_shared_family_across_domains_is_not_independent(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -383,7 +495,7 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("반증 출처", result.stderr)
 
-    def test_counter_refuted_with_registered_evidence_is_refuted(self):
+    def test_counter_refuted_cannot_reuse_supporting_evidence(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
             returns = [
@@ -408,8 +520,97 @@ class ResearchCtlTests(unittest.TestCase):
             ]
             write_json(session / "artifacts" / "agent_returns.json", returns)
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("별도로 등록된 반증 출처", result.stderr)
+
+    def test_counter_refuted_with_explicit_counter_evidence_is_refuted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "counter",
+                    "sources": [copy.deepcopy(SRC_A), copy.deepcopy(SRC_B)],
+                    "claims": [
+                        {
+                            "text": "A claim defeated by separately registered counter-evidence.",
+                            "risk": "high",
+                            "claim_type": "causal",
+                            "source_urls": [SRC_A["url"]],
+                            "counter_source_urls": [SRC_B["url"]],
+                            "counter_search": "Independent evidence directly contradicted the claim.",
+                            "counter_refuted": True,
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            claim = read_jsonl(session / "artifacts" / "claim_ledger.jsonl")[0]
+            self.assertEqual(claim["source_ids"], ["src_001"])
+            self.assertEqual(claim["counter_source_ids"], ["src_002"])
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             self.assertEqual(len(read_json(session / "outputs" / "refuted_claims.json")), 1)
+
+    def test_counter_refuted_rejects_overlapping_support_and_counter_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "counter-overlap",
+                    "sources": [copy.deepcopy(SRC_A)],
+                    "claims": [
+                        {
+                            "text": "The same source cannot be both support and sole refutation.",
+                            "risk": "high",
+                            "claim_type": "causal",
+                            "source_urls": [SRC_A["url"]],
+                            "counter_source_urls": [SRC_A["url"]],
+                            "counter_search": "A correction route was checked.",
+                            "counter_refuted": True,
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("분리되지 않음", result.stderr)
+
+    def test_unknown_counter_source_id_is_hard_error_exit_two(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            (session / "sources" / "sources.jsonl").write_text(
+                json.dumps({"id": "src_001", **SRC_A}) + "\n", encoding="utf-8"
+            )
+            (session / "artifacts" / "claim_ledger.jsonl").write_text(
+                json.dumps(
+                    {
+                        "claim_id": "clm_001",
+                        "text": "Unknown counter source claim",
+                        "risk": "high",
+                        "claim_type": "causal",
+                        "source_ids": ["src_001"],
+                        "counter_source_ids": ["src_999"],
+                        "counter_search": "Counter route checked.",
+                        "counter_refuted": True,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("counter source id", result.stderr)
 
     def test_unknown_source_id_is_hard_error_exit_two(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -458,6 +659,21 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
 
+    def test_strict_mode_requires_two_strong_source_families(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            returns = self.make_agent_return()
+            returns[0]["sources"][1]["quality_rating"] = "D"
+            weak_c = {**SRC_C, "quality_rating": "E"}
+            returns[0]["sources"].append(weak_c)
+            returns[0]["claims"][0]["source_urls"].append(weak_c["url"])
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("A/B 출처 계열 1개 < 2", unresolved[0]["status_reason"])
+
     def test_executable_claim_requires_and_accepts_proof(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
@@ -491,6 +707,38 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
 
+    def test_executable_claim_requires_environment_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "runtime",
+                    "sources": [SRC_A],
+                    "claims": [
+                        {
+                            "text": "The fixture command prints OK without environment metadata.",
+                            "risk": "high",
+                            "claim_type": "executable",
+                            "source_urls": [SRC_A["url"]],
+                            "execution_proof": {
+                                "script": "python3 fixture.py",
+                                "output": "OK",
+                                "verdict": "confirmed",
+                            },
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("script/output/env/verdict", result.stderr)
+
     def test_hard_error_invalidates_previous_verified_allowlist(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
@@ -519,6 +767,95 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("검증 게이트", result.stderr)
 
+    def test_eval_rejects_stale_verification_after_ledger_mutation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                encoding="utf-8",
+            )
+            ledger = session / "artifacts" / "claim_ledger.jsonl"
+            ledger.write_text(ledger.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("검증 이후", result.stderr)
+            state = read_json(session / "state.json")
+            self.assertFalse(state["verification"]["passed"])
+            self.assertTrue(state["verification"]["stale"])
+
+    def test_eval_signature_covers_unresolved_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()[:1]
+            returns[0]["claims"][0]["source_urls"] = [SRC_A["url"]]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            write_json(session / "outputs" / "unresolved_claims.json", [])
+            (session / "outputs" / "01_full_report.md").write_text("# Report\n", encoding="utf-8")
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("검증 상태 산출물", result.stderr)
+
+    def test_eval_rejects_tampered_verification_report(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            report_path = session / "outputs" / "verification_report.json"
+            report = read_json(report_path)
+            report["signature"] = "0" * 64
+            write_json(report_path, report)
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("verification_report", result.stderr)
+
+    def test_eval_rejects_tampered_verification_report_counts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            report_path = session / "outputs" / "verification_report.json"
+            report = read_json(report_path)
+            report["counts"]["verified"] = 999
+            write_json(report_path, report)
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("verification_report", result.stderr)
+
+    def test_merge_regresses_phase_and_invalidates_previous_audit(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(run_ctl("eval", "--session", str(session)).returncode, 0)
+            completed = read_json(session / "state.json")
+            self.assertEqual(completed["phase"], 7)
+            self.assertTrue(completed["evaluation"]["passed"])
+
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            merged = read_json(session / "state.json")
+            self.assertEqual(merged["phase"], 4)
+            self.assertFalse(merged["verification"]["passed"])
+            self.assertNotIn("evaluation", merged)
+
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            revalidated = read_json(session / "state.json")
+            self.assertEqual(revalidated["phase"], 6)
+            self.assertNotIn("evaluation", revalidated)
+
     def test_report_eval_passes_with_registered_citations(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
@@ -533,6 +870,31 @@ class ResearchCtlTests(unittest.TestCase):
             result = run_ctl("eval", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(read_json(session / "outputs" / "eval_report.json")["verdict"], "PASS")
+
+    def test_verified_coverage_requires_claim_text_and_adjacent_citation(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": "The defined metric was 42 in July 2026.",
+            "source_ids": ["src_001", "src_002"],
+        }
+        self.assertFalse(
+            researchctl._verified_claim_present(
+                claim,
+                "A different statement appears here. [src_001] [src_002]",
+            )
+        )
+        self.assertFalse(
+            researchctl._verified_claim_present(
+                claim,
+                "The defined metric was 42 in July 2026.\n\n[src_001] [src_002]",
+            )
+        )
+        self.assertTrue(
+            researchctl._verified_claim_present(
+                claim,
+                "The defined metric was 42 in July 2026. [src_001]",
+            )
+        )
 
     def test_report_eval_rejects_unresolved_claim_leak(self):
         with tempfile.TemporaryDirectory() as temp:

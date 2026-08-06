@@ -1,5 +1,31 @@
 # Changelog
 
+## 3.1.0 — 2026-08-06
+
+### Fixed
+
+- Recompute the verification signature during standalone report evaluation and reject stale source, ledger, or verified/unresolved/refuted outputs.
+- Require `state.json`, `verification_report.json`, and the generated status-output counts to agree before a report audit can pass.
+- Invalidate earlier verification and evaluation state whenever agent returns are merged again.
+- Separate supporting evidence from defeating counter-evidence with `counter_source_urls` / `counter_source_ids`; supporting sources can no longer satisfy a refutation by themselves.
+- Require `env` metadata for executable proof.
+- Count verified-claim report coverage only when the claim and an adjacent supporting source marker are present together.
+- Reject non-HTTP(S) source URLs and URLs containing embedded credentials; preserve bracketed IPv6 hosts during normalization.
+
+### Changed
+
+- Bumped session schema to version 2.
+- Strict high-risk claims now require at least two independent A/B-grade source families in addition to three independent families overall.
+- A standard refutation requires A/B/C counter-evidence; strict high-risk refutation requires A/B counter-evidence.
+- Unified runtime, plugin, project, and release versions at `3.1.0`.
+
+### Added
+
+- Deterministic release metadata generator/checker with unlisted-file detection.
+- GitHub Actions matrix for Python 3.9, 3.11, and 3.14, with third-party actions pinned to immutable commit SHAs.
+- Dependabot updates for GitHub Actions.
+- Regression coverage for stale signatures, status-output tampering, counter-evidence separation, strict source quality, executable environment metadata, URL schemes/IPv6, and adjacent report citations.
+
 ## 3.0.0-codex.1 — 2026-08-06
 
 First Codex-native derivative based on upstream insane-research 2.8.2.

@@ -10,9 +10,9 @@ Organize by the user's questions, not by subagent.
 
 ## 4. Material-claim evidence table
 
-| Claim ID | Conclusion | Sources | Valid at | Status |
-|---|---|---|---|---|
-| clm_001 |  | [src_001] [src_002] |  | verified |
+| Claim ID | Conclusion | Supporting sources | Counter-evidence | Valid at | Status |
+|---|---|---|---|---|---|
+| clm_001 |  | [src_001] [src_002] | — |  | verified |
 
 ## 5. Contradictions and limitations
 

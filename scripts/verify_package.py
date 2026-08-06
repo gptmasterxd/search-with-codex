@@ -40,6 +40,17 @@ def load_runtime_version() -> str:
     return str(module.VERSION)
 
 
+def load_pyproject_version() -> str:
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    project = re.search(r"(?ms)^\[project\]\s*(.*?)(?=^\[|\Z)", text)
+    if not project:
+        raise RuntimeError("pyproject.toml [project] section missing")
+    match = re.search(r'(?m)^version\s*=\s*"([^"]+)"\s*$', project.group(1))
+    if not match:
+        raise RuntimeError("pyproject.toml project.version missing")
+    return match.group(1)
+
+
 def main() -> int:
     errors: list[str] = []
     required = [
@@ -60,10 +71,19 @@ def main() -> int:
         plugin = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         if plugin.get("skills") != "./skills/":
             errors.append("plugin skills path must be ./skills/")
-        if plugin.get("version") != load_runtime_version():
-            errors.append("plugin version and researchctl VERSION differ")
+        manifest = json.loads((ROOT / "MANIFEST.json").read_text(encoding="utf-8"))
+        versions = {
+            "plugin": str(plugin.get("version") or ""),
+            "runtime": load_runtime_version(),
+            "pyproject": load_pyproject_version(),
+            "manifest": str(manifest.get("version") or ""),
+        }
+        if len(set(versions.values())) != 1:
+            errors.append(f"version mismatch: {versions}")
+        elif not re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?", versions["plugin"]):
+            errors.append(f"version is not semver-compatible: {versions['plugin']}")
     except Exception as exc:  # noqa: BLE001 - integrity tool should aggregate
-        errors.append(f"plugin/runtime parse failure: {exc}")
+        errors.append(f"version metadata parse failure: {exc}")
 
     skill_text = (CANONICAL / "SKILL.md").read_text(encoding="utf-8") if (CANONICAL / "SKILL.md").exists() else ""
     frontmatter = re.match(r"^---\n(.*?)\n---\n", skill_text, flags=re.DOTALL)
@@ -96,6 +116,12 @@ def main() -> int:
                         errors.append(f"{path.name}: missing {key}")
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{path.name}: TOML parse failure: {exc}")
+
+    config_example = ROOT / ".codex" / "config.toml.example"
+    if config_example.exists():
+        config_text = config_example.read_text(encoding="utf-8")
+        if "max_concurrent_threads_per_session" not in config_text:
+            errors.append("config.toml.example must use agents.max_concurrent_threads_per_session")
 
     if not MIRROR.is_dir():
         errors.append("repository-scoped mirror missing; run scripts/sync_skill.py")

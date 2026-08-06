@@ -1,30 +1,33 @@
 # Validation report
 
-**Release:** 3.0.0-codex.1  
-**Validated at:** 2026-08-06T12:40:40Z  
-**Runtime used:** Python 3.13.5  
+**Release:** 3.1.0
+**Validated at:** 2026-08-06T13:56:02Z
+**Runtime used:** Python 3.13.5
 **Codex CLI in validation container:** not installed
 
 ## Results
 
 - Python compilation: **PASS**
-- Unit and integration tests: **PASS** — Ran 26 tests in 7.865s · OK
-- Package integrity: **PASS** — PACKAGE CHECK: PASS · version: 3.0.0-codex.1 · skill files: 10 · custom agents: 5
+- Python 3.9 grammar parse for runtime, release scripts, and tests: **PASS**
+- Unit and integration tests: **PASS** — Ran 40 tests · OK
+- Package integrity: **PASS** — PACKAGE CHECK: PASS · version: 3.1.0 · skill files: 10 · custom agents: 5
+- Release metadata exact-set and checksum audit: **PASS** — 55 files
 - Project-local installer: **PASS**
 - Installed-skill doctor check: **PASS**
 - Installed custom-agent files: **5**
 - End-to-end control flow (`init → merge → validate → finalize`): **PASS**
+- Git diff whitespace check: **PASS**
 
 ## Installed-skill doctor
 
 ```json
 {
   "passed": true,
-  "version": "3.0.0-codex.1",
+  "version": "3.1.0",
   "checks": {
     "python": "3.13.5",
     "python_supported": true,
-    "skill_root": "/tmp/tmpfxba8cpl/project/.agents/skills/insane-research",
+    "skill_root": "<temporary-project>/.agents/skills/insane-research",
     "skill_md": true,
     "references": true,
     "templates": true,
@@ -38,7 +41,7 @@
 ```json
 {
   "verdict": "PASS",
-  "checked_at": "2026-08-06T12:40:40Z",
+  "checked_at": "2026-08-06T13:56:02Z",
   "report_files": [
     "outputs/00_executive_summary.md",
     "outputs/01_full_report.md"
@@ -60,6 +63,7 @@
   },
   "dangling_citations": [],
   "orphan_sources": [],
+  "uncovered_verified_claims": [],
   "leaks": [],
   "failures": []
 }
@@ -70,9 +74,10 @@
 ```json
 {
   "passed": true,
+  "checker_version": "3.1.0",
   "strict": false,
   "exit_code": 0,
-  "signature": "74293d1d79446a107d62595a114b39decc1ab9dbf4e379c0e90936da2c02c9fd",
+  "signature": "282221b3262f94692c0f004ac1f89b8e48b1ad31ca01c62c88737e885fc7b42d",
   "hard_errors": [],
   "process_violations": [],
   "counts": {
@@ -80,10 +85,10 @@
     "unresolved": 0,
     "refuted": 0
   },
-  "checked_at": "2026-08-06T12:40:40Z"
+  "checked_at": "2026-08-06T13:56:02Z"
 }
 ```
 
 ## What was not directly exercised
 
-The container did not have the `codex` executable installed, so an interactive Codex session was not launched. Skill layout, plugin metadata, custom-agent TOML, install paths, Python 3.9 syntax compatibility, deterministic control flow, and installed-path execution were validated. Actual web-research quality still depends on the Codex model, enabled internet or MCP tools, source access, and the research prompt.
+The validation container did not have the `codex` executable installed, so an interactive Codex session was not launched. Skill layout, plugin metadata, custom-agent TOML, installation paths, Python 3.9 syntax compatibility, deterministic control flow, stale-signature rejection, release integrity, and installed-path execution were validated. Actual web-research quality still depends on the Codex model, enabled internet or MCP tools, source access, and the research prompt.

@@ -38,6 +38,7 @@
           "https://example.gov/report",
           "https://independent.example.org/analysis"
         ],
+        "counter_source_urls": [],
         "counter_search": "Searched for corrections and alternative measurements; no credible refutation found in this example.",
         "counter_refuted": false,
         "conflicting": false,

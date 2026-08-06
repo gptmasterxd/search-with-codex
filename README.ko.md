@@ -17,6 +17,24 @@
 - 깨진 인용과 미확정·반박 주장 본문 누출 검사
 - 자동 별점, 숨은 최초 실행 작업, 텔레메트리, 네트워크 설치 없음
 
+## 3.1 안정성 보강
+
+- `eval` 실행 시 검증 서명을 다시 계산합니다. 검증 후 출처 레지스트리, 주장 장부, verified/unresolved/refuted 산출물 중 하나라도 바뀌면 평가를 중단하고 재검증을 요구합니다.
+- 주장을 지지하는 `source_urls`와 주장을 무너뜨리는 `counter_source_urls`를 분리했습니다. 같은 지지 출처를 반박 근거로 재사용해 `refuted`로 만드는 것을 막습니다.
+- strict 고위험 주장은 독립 출처 계열 3개뿐 아니라 그중 A/B 등급 계열 2개 이상을 요구합니다.
+- 실행 검증은 명령, 출력, 환경·버전, 판정을 모두 기록해야 합니다.
+- 보고서에서 출처 ID만 반복한다고 검증된 주장을 사용한 것으로 세지 않습니다. 주장 자체와 이를 뒷받침하는 인용이 같은 문단·표 행에 있어야 합니다.
+- 출처 URL은 HTTP(S)만 허용하고, 자격 증명이 포함된 URL을 거부하며, IPv6 주소를 안전하게 정규화합니다.
+- 품질 등급과 근거 계열은 문서별로 유지하고 동일한 정규화 URL만 보수적으로 합칩니다. 무해한 `www.` 호스트 별칭도 거짓 불일치로 처리하지 않습니다.
+- 이름 있는 커스텀 에이전트는 대화 기록을 상속하지 않는 자기완결형 프롬프트를 사용하며, 실제 도구 스키마와 검색 호출 예산·중단 조건을 따릅니다.
+- 세션 초기화가 작업공간 경로를 별도로 제공하므로 macOS `/tmp` 프로젝트가 편집 도구에서 작업공간 밖 `/private/tmp` 경로로 바뀌지 않습니다.
+- 체크섬 불일치뿐 아니라 체크섬 목록에서 빠진 배포 파일도 탐지합니다.
+- GitHub Actions가 Python 3.9·3.11·3.14에서 테스트와 패키지 무결성 검사를 실행합니다.
+
+### 3.0 세션에서 올릴 때
+
+3.0에서 이미 생성한 세션은 그대로 보존할 수 있지만, `counter_refuted: true`인 주장에는 별도의 `counter_source_urls`가 없으므로 3.1 검증에서 `unresolved` 또는 절차 위반으로 분류될 수 있습니다. 해당 주장만 반증 출처를 다시 수집해 `artifacts/agent_returns.json`에 기록한 뒤 `merge → validate → finalize`를 다시 실행하십시오. 3.1은 검증 서명 형식도 강화했으므로 과거 `verification_report.json`과 `eval_report.json`을 신뢰하지 않고 재검증하는 것이 정상 동작입니다.
+
 ## 설치
 
 ### 사용자 전체 Codex에 설치
@@ -77,7 +95,11 @@ $insane-research 원주에서 물리치료사 부부가 운영할 1:1 재활운�
 TKA 이후 6개월까지 무릎 굴곡 ROM 확보 전략을 최신 논문과 가이드라인까지 포함해 심층 조사해줘.
 ```
 
+설치된 스킬이 많아 Codex가 스킬 설명 컨텍스트 예산 경고를 표시한다면, 자동 선택보다 명시적인 `$insane-research` 호출이 안정적인 진입점입니다.
+
 의료·법률·재무·규제·안전·최신 현황처럼 틀렸을 때 손실이 큰 주제는 스킬이 strict 모드를 사용하도록 설계되어 있습니다.
+
+strict 고위험 주장에는 독립 출처 계열 3개와 A/B 등급 출처 계열 2개 이상이 필요합니다. 반증으로 폐기된 주장은 `counter_source_urls`에 별도의 반증 출처를 기록해야 하며, standard에서는 A/B/C, strict 고위험에서는 A/B 등급 반증 근거가 필요합니다.
 
 ## 인터넷과 MCP
 
@@ -188,6 +210,8 @@ RESEARCH/<session>/
 
 `unresolved`가 존재하는 것 자체는 실패가 아닙니다. 해당 주장을 본문에서 단정하지 않는 것이 목적입니다.
 
+`merge`를 다시 실행하면 이전 검증 서명은 자동 무효화됩니다. 검증 뒤 장부나 출처를 손으로 수정한 경우에도 `eval`이 서명 불일치를 감지하므로 반드시 `validate`를 다시 실행해야 합니다.
+
 ### 최종 보고서 감사
 
 ```bash
@@ -199,6 +223,7 @@ RESEARCH/<session>/
 - `[src_001]` 형식의 인용 ID가 레지스트리에 존재하는지
 - 미확정·반박 주장이 일반 본문에 섞였는지
 - 검증된 주장들이 실제 본문에 사용됐는지
+- 검증된 주장과 이를 뒷받침하는 인용이 같은 문단 또는 표 행에 있는지
 - 수집했지만 인용하지 않은 출처 비율
 
 ## 커스텀 에이전트
@@ -219,10 +244,19 @@ RESEARCH/<session>/
 python3 -m compileall -q skills/insane-research/scripts
 python3 -m unittest discover -s tests -v
 python3 scripts/verify_package.py
-python3 scripts/verify_release.py  # 배포 ZIP의 CHECKSUMS.sha256 생성 후 사용
+python3 scripts/update_release_metadata.py --check
+python3 scripts/verify_release.py
 ```
 
-테스트는 URL 중복 제거, 출처 등급 정규화, 주장 검증 종료 코드, strict 모드, 실행 증적, 깨진 인용, 미확정 주장 누출, 설치 패키지 동기화를 확인합니다.
+배포 파일을 의도적으로 변경한 뒤에는 메타데이터를 다시 생성하고 diff를 검토합니다.
+
+```bash
+python3 scripts/update_release_metadata.py
+python3 scripts/update_release_metadata.py --check
+python3 scripts/verify_release.py
+```
+
+테스트는 URL 안전성·중복 제거, 출처 등급 정규화, 지지·반증 출처 분리, 검증 서명 신선도, 주장 검증 종료 코드, strict 모드, 실행 증적, 깨진 인용, 미확정 주장 누출, 설치 패키지 동기화를 확인합니다.
 
 ## 한계
 
