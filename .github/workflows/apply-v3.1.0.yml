@@ -28,8 +28,9 @@ jobs:
 
           chunks=(.upgrade-payload/chunk-*)
           test "${#chunks[@]}" -eq 12
-          for index in $(seq -w 0 10); do
-            test "$(wc -c < ".upgrade-payload/chunk-${index}")" -eq 8000
+          for index in $(seq 0 10); do
+            chunk="$(printf '%03d' "$index")"
+            test "$(wc -c < ".upgrade-payload/chunk-${chunk}")" -eq 8000
           done
           test "$(wc -c < .upgrade-payload/chunk-011)" -eq 4788
 
