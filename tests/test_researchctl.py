@@ -151,6 +151,12 @@ class ResearchCtlTests(unittest.TestCase):
             researchctl.normalize_url("https://[2001:db8::1]:8443/a/"),
             "https://[2001:db8::1]:8443/a",
         )
+        self.assertEqual(
+            researchctl.report_urls(
+                "See [source](https://example.com/report/?utm_source=test)."
+            ),
+            {"https://example.com/report"},
+        )
 
     def test_init_creates_resumable_session(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -169,12 +175,50 @@ class ResearchCtlTests(unittest.TestCase):
             session = Path(payload["session"])
             self.assertTrue((session / "state.json").exists())
             self.assertTrue((session / "artifacts" / "research_plan.md").exists())
+            self.assertTrue((session / "artifacts" / "agent_returns").is_dir())
             workspace_session = Path(payload["workspace_session"])
             self.assertEqual(workspace_session.resolve(), session)
             self.assertTrue(str(workspace_session).startswith(str(Path(temp))))
             state = read_json(session / "state.json")
             self.assertEqual(state["mode"], "strict")
-            self.assertEqual(state["schema_version"], 2)
+            self.assertEqual(state["schema_version"], 3)
+
+    def test_merge_prefers_isolated_per_agent_files_over_legacy_aggregate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()
+            write_json(
+                session / "artifacts" / "agent_returns.json",
+                {"returns": "invalid legacy value that must be ignored"},
+            )
+            write_json(session / "artifacts" / "agent_returns" / "01-official.json", returns[0])
+            write_json(
+                session / "artifacts" / "agent_returns" / "02-cross-check.json",
+                {"returns": [returns[1]]},
+            )
+
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["input_mode"], "per-agent-directory")
+            self.assertEqual(
+                payload["input_files"],
+                [
+                    "artifacts/agent_returns/01-official.json",
+                    "artifacts/agent_returns/02-cross-check.json",
+                ],
+            )
+            self.assertEqual(payload["agent_returns"], 2)
+            self.assertEqual(len(read_jsonl(session / "sources" / "sources.jsonl")), 2)
+
+    def test_merge_reports_invalid_per_agent_file_path(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            bad_path = session / "artifacts" / "agent_returns" / "01-bad.json"
+            write_json(bad_path, {"returns": "not-an-array"})
+            result = run_ctl("merge", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(str(bad_path), result.stderr)
 
     def test_merge_deduplicates_identical_url_conservatively_and_logs_queries(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -427,6 +471,23 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertTrue(state["verification"]["passed"])
             self.assertEqual(len(state["verification"]["signature"]), 64)
 
+            brief_result = run_ctl("brief", "--session", str(session))
+            self.assertEqual(brief_result.returncode, 0, brief_result.stderr)
+            brief = json.loads(brief_result.stdout)
+            self.assertEqual(len(brief["sources"]), 2)
+            self.assertEqual(len(brief["verified_claims"]), 1)
+            self.assertEqual(brief["unresolved_claims"], [])
+            self.assertEqual(brief["refuted_claims"], [])
+            self.assertEqual(
+                brief["verified_claims"][0]["source_ids"],
+                ["src_001", "src_002"],
+            )
+            self.assertEqual(
+                brief["verified_claims"][0]["claim_scope"],
+                "synthesized",
+            )
+            self.assertNotIn("notes", brief["sources"][0])
+
     def test_missing_counter_search_is_exit_one(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))
@@ -635,29 +696,114 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("src_999", result.stderr)
 
-    def test_strict_mode_requires_three_source_families(self):
+    def test_strict_mode_verifies_with_two_strong_source_families(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp), mode="strict")
             write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             result = run_ctl("validate", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 0)
-            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
-            self.assertEqual(len(unresolved), 1)
-            self.assertIn("< 3", unresolved[0]["status_reason"])
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
 
-    def test_strict_mode_verifies_with_three_families(self):
+    def test_attributed_high_risk_claim_accepts_one_directly_inspected_authority(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["access"] = {"method": "browser", "status": "ok"}
             returns = self.make_agent_return()
-            returns[0]["sources"].append(SRC_C)
-            returns[0]["claims"][0]["source_urls"].append(SRC_C["url"])
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "Article 53 directly requires the stated disclosure.",
+                    "claim_type": "legal",
+                    "claim_scope": "attributed",
+                    "attribution": "Article 53",
+                    "source_urls": [SRC_A["url"]],
+                }
+            )
             write_json(session / "artifacts" / "agent_returns.json", returns)
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             result = run_ctl("validate", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
+            verified = read_json(session / "outputs" / "verified_claims.json")
+            self.assertEqual(len(verified), 1)
+            self.assertEqual(verified[0]["claim_scope"], "attributed")
+            self.assertIn("직접 귀속", verified[0]["status_reason"])
+            brief = json.loads(run_ctl("brief", "--session", str(session)).stdout)
+            self.assertEqual(brief["verified_claims"][0]["claim_scope"], "attributed")
+            self.assertEqual(brief["verified_claims"][0]["attribution"], "Article 53")
+
+    def test_attributed_claim_requires_direct_source_access(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["access"] = {"method": "web-search", "status": "partial"}
+            returns = self.make_agent_return()
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "The named trial reported the stated endpoint.",
+                    "claim_scope": "attributed",
+                    "attribution": "named trial",
+                    "source_urls": [SRC_A["url"]],
+                }
+            )
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("직접 열람한", unresolved[0]["status_reason"])
+
+    def test_attributed_review_result_survives_conflicting_study(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["primary"] = False
+            source["access"] = {"method": "browser", "status": "ok"}
+            returns = self.make_agent_return()
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "The named meta-analysis reported no pooled opioid reduction.",
+                    "claim_scope": "attributed",
+                    "attribution": "named meta-analysis",
+                    "source_urls": [SRC_A["url"]],
+                    "conflicting": True,
+                    "counter_search": "A different trial reported an early benefit.",
+                }
+            )
+            write_json(session / "artifacts" / "agent_returns.json", returns[:1])
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            verified = read_json(session / "outputs" / "verified_claims.json")
+            self.assertEqual(len(verified), 1)
+            self.assertIn("상충은 합성", verified[0]["status_reason"])
+
+    def test_causal_claim_cannot_use_attributed_shortcut(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            source = copy.deepcopy(SRC_A)
+            source["access"] = {"method": "browser", "status": "ok"}
+            returns = self.make_agent_return()
+            returns[0]["sources"] = [source]
+            returns[0]["claims"][0].update(
+                {
+                    "text": "The named trial proves that the intervention causes recovery.",
+                    "claim_type": "causal",
+                    "claim_scope": "attributed",
+                    "attribution": "named trial",
+                    "source_urls": [SRC_A["url"]],
+                }
+            )
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertIn("causal", unresolved[0]["status_reason"])
 
     def test_strict_mode_requires_two_strong_source_families(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -774,7 +920,9 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report) "
+                "[src_002](https://b.example.org/analysis)\n",
                 encoding="utf-8",
             )
             ledger = session / "artifacts" / "claim_ledger.jsonl"
@@ -836,7 +984,9 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report) "
+                "[src_002](https://b.example.org/analysis)\n",
                 encoding="utf-8",
             )
             self.assertEqual(run_ctl("eval", "--session", str(session)).returncode, 0)
@@ -863,13 +1013,39 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n\n"
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report/?utm_campaign=test) "
+                "[src_002](https://b.example.org/analysis)\n\n"
                 "## Unresolved claims\n\nNone.\n\n## Refuted claims\n\nNone.\n",
                 encoding="utf-8",
             )
             result = run_ctl("eval", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(read_json(session / "outputs" / "eval_report.json")["verdict"], "PASS")
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["verdict"], "PASS")
+            self.assertEqual(report["metrics"]["citation_url_coverage_rate"], 1.0)
+            self.assertEqual(report["missing_citation_urls"], [])
+
+    def test_report_eval_rejects_source_markers_without_visible_urls(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n",
+                encoding="utf-8",
+            )
+
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["verdict"], "FAIL")
+            self.assertEqual(report["metrics"]["citation_url_coverage_rate"], 0.0)
+            self.assertEqual(
+                [item["source_id"] for item in report["missing_citation_urls"]],
+                ["src_001", "src_002"],
+            )
 
     def test_verified_coverage_requires_claim_text_and_adjacent_citation(self):
         claim = {
@@ -893,6 +1069,108 @@ class ResearchCtlTests(unittest.TestCase):
             researchctl._verified_claim_present(
                 claim,
                 "The defined metric was 42 in July 2026. [src_001]",
+            )
+        )
+
+    def test_attributed_verified_coverage_requires_visible_attribution(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": "Article 53 directly requires technical documentation and training-content disclosure.",
+            "claim_scope": "attributed",
+            "attribution": "Article 53",
+            "source_ids": ["src_001"],
+        }
+        self.assertFalse(
+            researchctl._verified_claim_present(
+                claim,
+                "The rule directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+        self.assertTrue(
+            researchctl._attributed_claim_generalized(
+                claim,
+                "The rule directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+        self.assertTrue(
+            researchctl._verified_claim_present(
+                claim,
+                "Article 53 directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+        self.assertFalse(
+            researchctl._attributed_claim_generalized(
+                claim,
+                "Article 53 directly requires technical documentation and training-content "
+                "disclosure. [src_001](https://example.org/source)",
+            )
+        )
+
+    def test_attributed_coverage_accepts_natural_paraphrase_and_canonical_url(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": (
+                "The 2025 Gleicher et al. randomized trial (PMID 40935408) reported "
+                "higher recovery scores and lower pain through POD3."
+            ),
+            "claim_scope": "attributed",
+            "attribution": "The 2025 Gleicher et al. randomized trial (PMID 40935408)",
+            "source_ids": ["src_001"],
+        }
+        body = (
+            "2025년 Gleicher 무작위시험은 POD3까지 회복 점수가 높고 통증이 "
+            "낮았다고 보고했다. "
+            "[Gleicher RCT](https://pubmed.ncbi.nlm.nih.gov/40935408/)"
+        )
+        self.assertTrue(
+            researchctl._verified_claim_present(
+                claim,
+                body,
+                {"src_001": "https://pubmed.ncbi.nlm.nih.gov/40935408"},
+            )
+        )
+
+    def test_report_eval_counts_descriptive_registered_links_as_citations(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. "
+                "[Primary report](https://a.example.com/report) "
+                "[Independent analysis](https://b.example.org/analysis)\n\n"
+                "## Unresolved claims\n\nNone.\n\n## Refuted claims\n\nNone.\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["counts"]["cited_sources"], 2)
+            self.assertEqual(report["counts"]["cited_sources_with_visible_url"], 2)
+
+    def test_unresolved_leak_matching_does_not_combine_unrelated_paragraphs(self):
+        claim = {
+            "claim_id": "clm_004",
+            "text": (
+                "Node 런타임은 tsconfig.json을 읽지 않으므로 paths와 downlevel 변환 등 "
+                "tsconfig 의존 기능은 실행 시 적용되지 않는다."
+            ),
+        }
+        body = (
+            "`paths` alias가 필요한 저장소는 기존 빌드를 유지한다.\n\n"
+            "런타임은 타입 검사를 대신하지 않으므로 CI에서 tsconfig 설정을 유지한다.\n\n"
+            "별도 번들러가 downlevel 변환을 담당할 수 있다."
+        )
+        self.assertFalse(researchctl._claim_text_present_in_body(claim, body))
+        self.assertTrue(
+            researchctl._claim_text_present_in_body(
+                claim,
+                "Node 런타임은 tsconfig.json을 읽지 않으므로 paths와 downlevel 변환 등 "
+                "tsconfig 의존 기능은 실행 시 적용되지 않는다.",
             )
         )
 
@@ -923,8 +1201,10 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nNo verified conclusion. [src_001]\n\n"
-                "## Unresolved claims\n\nThe defined metric was 42 in July 2026. [src_001]\n",
+                "# Report\n\nNo verified conclusion. "
+                "[src_001](https://a.example.com/report)\n\n"
+                "## Unresolved claims\n\nThe defined metric was 42 in July 2026. "
+                "[src_001](https://a.example.com/report)\n",
                 encoding="utf-8",
             )
             result = run_ctl("eval", "--session", str(session))
@@ -940,7 +1220,8 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
             self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
             (session / "outputs" / "01_full_report.md").write_text(
-                "# Report\n\nThe agency published a report in July. [src_001]\n",
+                "# Report\n\nThe agency published a report in July. "
+                "[src_001](https://a.example.com/report)\n",
                 encoding="utf-8",
             )
             result = run_ctl("eval", "--session", str(session))

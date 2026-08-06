@@ -1,6 +1,32 @@
 {
   "name": "insane-research-codex",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Codex-native multi-agent deep research with source triangulation, deterministic claim verification, and audited reports",
-  "skills": "./skills/"
+  "author": {
+    "name": "gptmasterxd",
+    "url": "https://github.com/gptmasterxd"
+  },
+  "repository": "https://github.com/gptmasterxd/insane-research-codex",
+  "license": "MIT",
+  "keywords": [
+    "research",
+    "deep-research",
+    "citations",
+    "multi-agent"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Insane Research for Codex",
+    "shortDescription": "Audited, citation-heavy deep research for Codex.",
+    "longDescription": "Run resumable multi-agent research with current-primary evidence sweeps, deterministic high-risk claim gates, visible source links, and final report audits.",
+    "developerName": "gptmasterxd",
+    "category": "productivity",
+    "capabilities": [
+      "deep research",
+      "multi-agent retrieval",
+      "citation verification",
+      "resumable sessions"
+    ],
+    "defaultPrompt": "Use $insane-research to investigate this question deeply, verify high-risk claims, and produce a concise report with user-visible source links."
+  }
 }

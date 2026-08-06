@@ -2,6 +2,11 @@
 
 Grades measure evidentiary fitness for the specific claim, not prestige alone.
 
+Also distinguish evidence form. A directly inspected authoritative source can verify an
+`attributed` statement about what that source says, but it does not by itself verify a
+`synthesized` real-world effect or interpretation. For example, one RCT can verify “the
+trial reported X”; a broader clinical-effect claim still needs independent synthesis.
+
 ## A — strongest primary evidence
 
 - peer-reviewed systematic review or high-quality primary study appropriate to the question;
@@ -36,6 +41,8 @@ Grades measure evidentiary fitness for the specific claim, not prestige alone.
 
 Grade the exact document for the exact claim. A domain can host a systematic review, an editorial, and a press release with legitimately different evidentiary grades. Do not normalize all documents on one hostname to one grade.
 
+Classify the artifact that was actually inspected. An aggregator, search snippet, mirror, or compatibility index cannot inherit the primary status, publisher, or grade of the study, release, or regulation it summarizes. Treat it as a lead or secondary evidence unless the canonical artifact is unavailable, disclose that limitation, and do not use it to claim direct inspection of the underlying work. A manually maintained compatibility table may establish breadth or a verification gap; it does not by itself establish that an unlisted package is unsupported.
+
 When multiple agents return the same normalized URL with different grades, the merger selects the modal grade and the more conservative grade on ties. This reconciles contradictory assessments of one source without flattening unrelated documents from the same host.
 
 ## Claim-specific cautions
@@ -44,3 +51,6 @@ When multiple agents return the same normalized URL with different grades, the m
 - A corporate filing is primary for what the company reported, not necessarily proof of an external causal claim.
 - A review article may be secondary even when published in a prestigious journal.
 - A news article does not become an independent source when it merely repeats an official announcement.
+- A search snippet cannot receive direct-inspection credit. When title, publication type,
+  version, result status, article section, or table context matters, open the canonical
+  record and record `access.status: ok` only after checking it.

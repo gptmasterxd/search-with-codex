@@ -15,6 +15,29 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - One standard-library CLI for sessions, merge, verification, and report audit
 - Source-family independence, strict mode, counter-searches, primary-source checks, executable proof, signed verification state, and unresolved/refuted leakage checks
 
+## 3.2 benchmark-driven improvements
+
+- Every cited registry ID must expose its canonical URL in the user-facing report. Bare `[src_NNN]` markers now fail the final audit.
+- Parallel results are saved as isolated `artifacts/agent_returns/*.json` files, removing the shared aggregate-file patch conflict while retaining legacy-session support.
+- Current medical, legal, regulatory, standards, and fast-moving technical work includes a direct-primary freshness sweep over the cutoff date and preceding 24 months.
+- Claims distinguish source-attributed facts from synthesized conclusions. A directly inspected A/B-grade authoritative origin can verify only a visibly attributed statement about what it says; synthesized strict conclusions still require two independent A/B-grade families.
+- Recent decision-changing studies and official records must be opened by canonical identifier and checked for exact title, type, date, and result status. Registry linkage batches the identifier, quoted official title, and study metadata, and falls back to official machine-readable results where needed.
+- Current technical adoption work stays in standard mode unless safety, security, finance, or fundamental rights make strict mode necessary. Per-axis returns are capped more tightly, and reports show a decision-critical evidence subset instead of dumping the complete ledger.
+- Conflicting studies retain their accurately attributed results; only the cross-study synthesis remains unresolved. Legal freshness checks must identify the exact amended provision and its material effect.
+- Sparse exact-window comparisons get one bounded sensitivity search for the nearest follow-up or an adjacent add-on/usual-care comparator, with indirectness kept explicit. Device and procedure reviews also cover mechanical and workflow failures.
+- Capped current-medical runs reserve one discovery call for post-return identifier or blocked-source closure, and compact agent returns prioritize the strongest result and strongest credible counter-result.
+- Standard mode starts with 2–3 axes and at most three research agents; strict mode starts with 3–4 axes and at most four. Per-axis search and return budgets are bounded.
+- Merge review starts from compact warning output, and `researchctl brief` supplies one synthesis map instead of replaying the complete registry and ledger into model context.
+- Human reports omit internal claim IDs and gate statuses, limit the evidence synthesis to six decision-critical findings, and summarize only decision-relevant gaps in the annexes.
+- Decision-changing conflicts must present the strongest evidence on both sides in the findings; report prose never relabels ledger restatements as original quotations.
+- Comparative medical searches audit overlapping reviews with different cutoffs, samples, methods, or conclusions. Aggregators cannot inherit an underlying study's primary status, and exact technical compatibility claims pair a labeled breadth index with version-specific first-party records.
+- Current medical freshness sweeps preserve recent positive and null direct studies across intervention aliases, and blocked PubMed pages fall back to official NCBI structured data before being closed as inaccessible.
+- Before final audit, one evidence-preserving editorial pass removes duplicated evidence sections, terminology drift, malformed units, and language errors.
+- The report audit resolves descriptive citation labels by their registered canonical URLs and recognizes natural attributed paraphrases, so translated reports no longer need verbatim English ledger sentences.
+- The plugin manifest now follows the validated Codex author and interface schema.
+
+These changes address the reviewed [v3.1.0 versus base Codex benchmark](benchmarks/results/v3.1.0-vs-base.md), where v3.1 retained strong strict-mode currentness but used 4.69× the tokens of base Codex, exposed no usable links in one report, and missed a recent direct medical trial.
+
 ## 3.1 reliability hardening
 
 - A standalone report audit recomputes the verification signature and rejects any source registry, claim ledger, or status-output change made after validation.
@@ -32,6 +55,15 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 ### Upgrading existing 3.0 sessions
 
 Existing 3.0 session directories can be retained, but claims with `counter_refuted: true` do not yet have separate `counter_source_urls`. Under 3.1 those claims may become `unresolved` or a process violation until defeating evidence is collected and recorded. Update only the affected entries in `artifacts/agent_returns.json`, then rerun `merge → validate → finalize`. Version 3.1 also strengthens the verification signature, so invalidating and regenerating prior `verification_report.json` and `eval_report.json` is expected.
+
+### Upgrading existing 3.1 sessions
+
+Existing aggregate `artifacts/agent_returns.json` files remain valid. New work should save one completed return per axis under `artifacts/agent_returns/`; when that directory contains JSON files, it takes precedence over the legacy aggregate. Rerun `validate → finalize` after adding canonical Markdown links such as `[src_001](https://example.org/source)` to every cited source.
+
+Claims from existing sessions default to `claim_scope: synthesized`. To use the
+source-attributed path, recollect the affected return with an explicit
+`claim_scope: attributed`, an `attribution` string that appears in the claim text,
+and a directly opened A/B-grade primary source with `access.status: ok`.
 
 ## Install
 
@@ -68,7 +100,8 @@ In a Codex installation with enough skills to trigger a skill-description contex
 ## Runtime workflow
 
 ```text
-scope → plan 3–5 axes → parallel read-only subagents → parent merge
+scope → plan 2–3 standard or 3–4 strict axes → parallel read-only subagents
+→ isolated per-axis returns → parent merge
 → deterministic claim gate → verified-only synthesis → final report audit
 ```
 

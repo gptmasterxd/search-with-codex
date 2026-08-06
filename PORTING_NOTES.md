@@ -11,7 +11,7 @@ The original Claude plugin layout is replaced by both Codex-supported surfaces:
 
 ## 2. Subagent model
 
-The original agent/task orchestration is expressed as Codex custom agents in `.codex/agents/*.toml`. Research agents are read-only and return structured JSON. Only the parent Codex writes shared session artifacts, preventing parallel write conflicts.
+The original agent/task orchestration is expressed as Codex custom agents in `.codex/agents/*.toml`. Research agents are read-only and return structured JSON. The parent saves each completed result to a distinct `artifacts/agent_returns/*.json` file, so no concurrent operation patches one shared aggregate. The merger still accepts the legacy `artifacts/agent_returns.json` format.
 
 ## 3. Search portability
 
@@ -34,11 +34,13 @@ Compared with a prompt-only port, this version adds or makes explicit:
 - source-family independence, not only domain counts;
 - safe URL normalization and tracking-parameter removal;
 - modal per-domain source-grade normalization, with conservative tie-breaking;
-- strict mode requiring three independent source families for high-risk claims;
+- authority-aware claim scope: directly inspected source-attributed facts remain visibly attributed, while synthesized strict high-risk conclusions require two independent A/B-grade families;
+- canonical-identifier checks for recent decision-changing primary records, including protocol-versus-results reconciliation;
+- conflict-aware synthesis: divergent studies preserve their source-attributed results while only the cross-study conclusion remains unresolved;
 - explicit primary-source and counter-search requirements;
 - executable proof with command, output, and verdict;
 - signed verification state based on source registry, claim ledger, and verified output;
-- final report checks for dangling source IDs and unresolved/refuted claim leakage.
+- final report checks for dangling source IDs, missing user-visible registered URLs, and unresolved/refuted claim leakage.
 
 ## 6. Security changes
 

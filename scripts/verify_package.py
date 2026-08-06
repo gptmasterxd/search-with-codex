@@ -71,6 +71,30 @@ def main() -> int:
         plugin = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         if plugin.get("skills") != "./skills/":
             errors.append("plugin skills path must be ./skills/")
+        author = plugin.get("author")
+        if not isinstance(author, dict) or not str(author.get("name") or "").strip():
+            errors.append("plugin author must be an object with a non-empty name")
+        interface = plugin.get("interface")
+        required_interface_fields = (
+            "displayName",
+            "shortDescription",
+            "longDescription",
+            "developerName",
+            "category",
+        )
+        if not isinstance(interface, dict):
+            errors.append("plugin interface must be an object")
+        else:
+            for field in required_interface_fields:
+                if not str(interface.get(field) or "").strip():
+                    errors.append(f"plugin interface.{field} missing")
+            capabilities = interface.get("capabilities")
+            if not isinstance(capabilities, list) or not all(
+                isinstance(value, str) and value.strip() for value in capabilities
+            ):
+                errors.append("plugin interface.capabilities must be an array of non-empty strings")
+            if not str(interface.get("defaultPrompt") or interface.get("default_prompt") or "").strip():
+                errors.append("plugin interface default prompt missing")
         manifest = json.loads((ROOT / "MANIFEST.json").read_text(encoding="utf-8"))
         versions = {
             "plugin": str(plugin.get("version") or ""),

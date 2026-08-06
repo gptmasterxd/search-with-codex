@@ -1,5 +1,58 @@
 # Changelog
 
+## 3.2.0 — 2026-08-07
+
+### Added
+
+- User-visible citation URL coverage metric and hard final-audit gate.
+- Per-agent return directory with deterministic merge order and path-specific errors.
+- Current-primary freshness sweeps for medical, legal, regulatory, standards, and fast-moving technical topics.
+- Compact `brief` synthesis output to avoid replaying complete registries and status files into model context.
+- Reviewed real-Codex benchmark harness and sanitized v3.1 baseline results.
+- Validated Codex plugin author and interface metadata.
+- Authority-aware `claim_scope` contract separating source-attributed facts from synthesized conclusions.
+- Canonical-identifier checks for recent decision-changing primary records, including medical protocol/result reconciliation.
+- Resumable benchmark execution that preserves successful arms and archives failed attempts under a stable candidate-skill contract.
+
+### Changed
+
+- Standard planning defaults to 2–3 axes and at most three concurrent research agents; strict mode defaults to 3–4 axes and at most four.
+- Per-axis discovery defaults are 6 standard / 8 strict calls, with compact decision-relevant return limits.
+- Parent review starts from merge status and warnings, then inspects only targeted registry or ledger entries.
+- Reports use linked source markers and omit self-certifying audit language from substantive findings.
+- Session schema is now version 3; legacy aggregate agent returns remain supported.
+- Strict synthesized high-risk claims require two independent A/B-grade families; a directly inspected authoritative source can verify only a visibly attributed, source-bound statement.
+- Current technical adoption questions remain standard mode unless they are safety-, security-, financial-, or rights-critical; strict medical and legal work is unchanged.
+- Per-axis returns default to six sources and four material claims, and reports use a decision-critical evidence subset instead of replaying the complete ledger.
+
+### Fixed
+
+- Removed concurrent patch contention on one shared `agent_returns.json`.
+- Documented supported wait timeouts and bounded recovery from pre-thread spawn failures.
+- Required the research-plan template to be read before patching.
+- Enumerated valid claim types and clarified unresolved-claim placement to prevent avoidable merge warnings and audit retries.
+- Scoped unresolved-claim fuzzy matching to local paragraphs so unrelated terms across a report cannot create a false leakage failure.
+- Preserved accurately attributed study or authority results when broader evidence conflicts; disagreement now constrains the synthesized conclusion instead of erasing what each source reported.
+- Required current medical comparison searches to include a date-bounded bibliographic route and registry/publication linkage, and required intervening legal measures to state their operative effect.
+- Added one bounded, explicitly indirect sensitivity route for sparse exact-horizon or exact-comparator evidence, and required device/procedure research to cover mechanical and workflow failures.
+- Kept unresolved/refuted annexes decision-facing instead of replaying internal claim IDs and status ledgers.
+- Required registry-to-publication checks to combine exact identifiers, quoted official titles, and study metadata, with official machine-readable result tables as a fallback.
+- Removed internal claim IDs and gate statuses from the human evidence table and capped it at six decision-critical findings.
+- Corrected the medical benchmark expectation to recognize mixed Korean/English outcome terminology.
+- Reserved one capped medical discovery call for post-return closure of concrete identifiers, blocked sources, or named outcome gaps.
+- Prioritized the strongest decision-changing and contrary results within compact agent returns, and prohibited bibliography-only treatment of material conflicts.
+- Prevented translated or repeated ledger prose from being presented as original quotations in human reports.
+- Required current medical comparisons to audit overlapping reviews and retain the strongest credible synthesis on both sides instead of stopping at the first review found.
+- Prevented aggregators, mirrors, and compatibility indexes from inheriting the primary status, publisher, or grade of underlying material; attributed primary-result claims now require the strongest reachable canonical record.
+- Added breadth-plus-authority coverage for technical package ecosystems and version-specific first-party anchors for exact compatibility claims.
+- Added a final evidence-preserving editorial pass for duplicated sections, inconsistent terminology, malformed units, and language errors.
+- Required current medical freshness sweeps to batch intervention aliases and preserve both recent positive and null direct studies, without substituting registry linkage for direct-study retrieval.
+- Added official NCBI E-utilities/PMC structured-data fallback before closing a blocked PubMed record as abstract- or result-inaccessible.
+- Made report citation auditing resolve descriptive Markdown labels by registered canonical URL and accept natural attributed paraphrases with adjacent authority and source, removing the incentive to paste English ledger sentences into translated reports.
+- Prioritized later or larger methodologically strongest syntheses and their material harm results for scarce claim slots before redundant older reviews or indirect evidence.
+- Classified Codex account usage limits as benchmark infrastructure interruptions and captured top-level JSONL failures that were previously absent from transcript error metrics.
+- Made benchmark candidate identity use the Git-tracked skill tree and exclude Python runtime caches from auxiliary digests, so unchanged source can resume across validation runs.
+
 ## 3.1.0 — 2026-08-06
 
 ### Fixed

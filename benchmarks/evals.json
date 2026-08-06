@@ -1,0 +1,98 @@
+{
+  "skill_name": "insane-research",
+  "evals": [
+    {
+      "id": 1,
+      "name": "python-free-threading-standard",
+      "mode": "standard",
+      "prompt": "2026-08-07 기준으로 Python 3.14 free-threaded build를 CPU-bound 프로덕션 서비스에 채택할지 심층 조사해 주세요. 일반 CPython 빌드와의 차이, 실제 성능 근거, C 확장 및 패키지 호환성, 운영·디버깅 위험, 채택/보류 기준을 의사결정 보고서로 작성하세요. 공식 문서와 1차 자료를 우선하고 반대·예외 근거를 별도로 찾으세요. 검색/discovery 도구 호출은 최대 6회로 제한하고, 추가 질문 없이 한국어로 완결하세요. 중요한 현재 상태·수치·호환성 주장은 본문에서 확인 가능한 출처로 인용하세요.",
+      "expected_output": "A decision-ready Korean report that distinguishes supported facts from experimental or workload-dependent evidence, cites primary sources, and states concrete adoption gates.",
+      "expectations": [
+        {
+          "text": "The report distinguishes a free-threaded build from the default GIL-enabled build.",
+          "patterns": [
+            "(?=.*(?:free[- ]?thread|자유\\s*스레드|프리\\s*스레드))(?=.*(?:GIL|global interpreter lock))"
+          ]
+        },
+        {
+          "text": "The report discusses extension or package compatibility constraints.",
+          "patterns": [
+            "c 확장",
+            "extension",
+            "abi",
+            "호환"
+          ]
+        },
+        {
+          "text": "The report turns evidence into explicit adoption or deferral criteria.",
+          "patterns": [
+            "채택",
+            "보류",
+            "go/no-go",
+            "결정 기준"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "tka-analgesia-strict-medical",
+      "mode": "strict",
+      "prompt": "2026-08-07 기준, 만성 오피오이드 사용이 없는 성인 비합병증 일차성 단측 total knee arthroplasty 환자의 수술 후 첫 14일에 continuous adductor canal catheter와 single-shot adductor canal block 중 어떤 전략이 더 타당한지 strict 의료 리서치로 비교해 주세요. 통증, 오피오이드 사용량, 보행·기능, 낙상/근력, 감염·카테터 합병증을 구분하세요. 임상 가이드라인, 무작위시험, 체계적 문헌고찰 등 독립된 근거 계열을 우선하고 반대·무효·예외 근거도 찾으세요. 검색/discovery 도구 호출은 최대 8회로 제한하고, 환자 개인 진료 조언이 아닌 한국어 의사결정 보고서로 완결하세요. 모든 중요한 의료·수치·인과 주장은 본문에서 확인 가능한 출처로 인용하고 근거 부족은 단정하지 마세요.",
+      "expected_output": "A cautious strict-mode medical evidence report that separates outcomes and harms, triangulates independent evidence families, and avoids patient-specific advice.",
+      "expectations": [
+        {
+          "text": "The report compares analgesia and opioid outcomes separately from mobility or functional outcomes.",
+          "patterns": [
+            "(?=.*(?:통증|pain))(?=.*(?:오피오이드|opioid))(?=.*(?:보행|기능|mobility|function))"
+          ]
+        },
+        {
+          "text": "The report discusses catheter-specific or motor/fall-related harms.",
+          "patterns": [
+            "(?=.*(?:카테터|감염))(?=.*(?:낙상|근력))"
+          ]
+        },
+        {
+          "text": "The report states evidence limitations rather than making universal clinical claims.",
+          "patterns": [
+            "근거.*제한",
+            "불확실",
+            "이질",
+            "일반화"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "eu-ai-act-open-source-strict-legal",
+      "mode": "strict",
+      "prompt": "2026-08-07 기준으로 모델 가중치를 공개 배포하는 EU 외부의 general-purpose AI 모델 제공자가 EU AI Act상 어떤 의무를 언제부터 부담하는지 strict 법률·규제 리서치로 조사해 주세요. open-source 예외의 범위와 제외되는 의무, systemic-risk GPAI의 별도 기준, 적용 시점·전환 규정, EU 역외 제공자의 실무 조치를 구분한 한국어 의사결정 보고서를 작성하세요. EU 법령·위원회·AI Office 등 공식 1차 자료를 우선하고 반대 해석이나 아직 확정되지 않은 지침도 분리하세요. 검색/discovery 도구 호출은 최대 8회로 제한하고 추가 질문 없이 완결하세요. 중요한 법적 의무·기준·날짜 주장은 본문에서 확인 가능한 출처로 인용하며 법률 자문으로 단정하지 마세요.",
+      "expected_output": "A current strict legal/regulatory report that distinguishes baseline GPAI, open-source exceptions, systemic-risk duties, dates, and unresolved guidance.",
+      "expectations": [
+        {
+          "text": "The report distinguishes baseline GPAI obligations from systemic-risk obligations.",
+          "patterns": [
+            "(?=.*(?:systemic risk|시스템적 위험))(?=.*(?:general-purpose|GPAI))"
+          ]
+        },
+        {
+          "text": "The report explains that open-source treatment is scoped rather than a blanket exemption.",
+          "patterns": [
+            "(?=.*(?:open.source|오픈소스))(?=.*(?:예외|면제))(?=.*(?:제외|범위|전면|blanket))"
+          ]
+        },
+        {
+          "text": "The report gives applicability dates or transition timing with caveats.",
+          "patterns": [
+            "202[4-9]",
+            "적용.*시점",
+            "전환",
+            "시행"
+          ]
+        }
+      ]
+    }
+  ]
+}

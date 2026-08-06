@@ -21,6 +21,10 @@ class PackageTests(unittest.TestCase):
     def test_plugin_manifest_points_to_skill_directory(self):
         manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["skills"], "./skills/")
+        self.assertEqual(manifest["author"]["name"], "gptmasterxd")
+        self.assertTrue(manifest["interface"]["displayName"])
+        self.assertTrue(manifest["interface"]["defaultPrompt"])
+        self.assertTrue(manifest["interface"]["capabilities"])
         self.assertTrue((ROOT / "skills" / "insane-research" / "SKILL.md").exists())
 
     def test_repository_skill_mirror_is_current(self):
@@ -32,6 +36,28 @@ class PackageTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("PACKAGE CHECK: PASS", result.stdout)
+
+    def test_benchmark_regressions_are_encoded_in_retrieval_contract(self):
+        skill = (ROOT / "skills" / "insane-research" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        academic = (ROOT / ".codex" / "agents" / "academic-researcher.toml").read_text(
+            encoding="utf-8"
+        )
+        editor = (ROOT / ".codex" / "agents" / "report-editor.toml").read_text(
+            encoding="utf-8"
+        )
+        for phrase in (
+            "audit overlapping syntheses",
+            "aggregator cannot inherit",
+            "version-specific first-party",
+            "reread both user-facing files once",
+            "NCBI E-utilities",
+            "newest credible positive and null direct studies",
+        ):
+            self.assertIn(phrase, skill)
+        self.assertIn("do not stop at the first systematic review", academic)
+        self.assertIn("awkward machine translation", editor)
 
     def test_release_metadata_is_current(self):
         for command in (

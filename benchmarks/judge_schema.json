@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "winner",
+    "reasoning",
+    "scores"
+  ],
+  "properties": {
+    "winner": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "TIE"
+      ]
+    },
+    "reasoning": {
+      "type": "string"
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "A",
+        "B"
+      ],
+      "properties": {
+        "A": {
+          "$ref": "#/$defs/outputScore"
+        },
+        "B": {
+          "$ref": "#/$defs/outputScore"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "outputScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness",
+        "completeness",
+        "evidence_quality",
+        "uncertainty_handling",
+        "decision_usefulness",
+        "overall",
+        "strengths",
+        "weaknesses"
+      ],
+      "properties": {
+        "correctness": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "completeness": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "evidence_quality": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "uncertainty_handling": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "decision_usefulness": {
+          "description": "1=unacceptable, 2=weak, 3=adequate, 4=strong, 5=excellent",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "overall": {
+          "description": "Overall quality on the same 1-to-5 scale as the dimensions",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "strengths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "weaknesses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
