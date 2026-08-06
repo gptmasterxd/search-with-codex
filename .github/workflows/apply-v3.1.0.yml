@@ -40,7 +40,6 @@ jobs:
           tar -xzf /tmp/upgrade.tar.gz -C "$GITHUB_WORKSPACE"
 
           rm -rf .upgrade-payload
-          rm -f .github/workflows/apply-v3.1.0.yml
 
           python3 -m compileall -q skills scripts tests
           python3 -m unittest discover -s tests -v
@@ -49,7 +48,11 @@ jobs:
           python3 scripts/verify_release.py
           git diff --check
 
-      - name: Commit validated upgrade
+          # GITHUB_TOKEN cannot create or update workflow files. The validated
+          # CI workflow is added separately through the GitHub contents API.
+          rm -f .github/workflows/ci.yml
+
+      - name: Commit validated source upgrade
         shell: bash
         run: |
           set -euo pipefail
