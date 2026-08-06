@@ -35,6 +35,9 @@
 - Required current medical comparison searches to include a date-bounded bibliographic route and registry/publication linkage, and required intervening legal measures to state their operative effect.
 - Added one bounded, explicitly indirect sensitivity route for sparse exact-horizon or exact-comparator evidence, and required device/procedure research to cover mechanical and workflow failures.
 - Kept unresolved/refuted annexes decision-facing instead of replaying internal claim IDs and status ledgers.
+- Required registry-to-publication checks to combine exact identifiers, quoted official titles, and study metadata, with official machine-readable result tables as a fallback.
+- Removed internal claim IDs and gate statuses from the human evidence table and capped it at six decision-critical findings.
+- Corrected the medical benchmark expectation to recognize mixed Korean/English outcome terminology.
 
 ## 3.1.0 — 2026-08-06
 

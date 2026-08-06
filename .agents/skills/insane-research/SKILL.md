@@ -94,6 +94,8 @@ For current medical, legal, regulatory, standards, or fast-moving technical ques
 
 For every recent direct study or other primary record capable of changing the decision, open its canonical record and verify the exact title, identifier, publication type, date, and whether it contains results or is only a protocol/registry entry. Do not infer those fields from a search snippet. In medical work, reconcile PMID/DOI and trial-registry links and check for a later result publication before calling a study unpublished.
 
+When a trial registry reports results but does not expose a linked publication, the reserved linkage call must batch meaningfully different keys: the exact registry identifier, the registry's official title in quotes, and the title plus sponsor, investigator, or primary outcome. Inspect any candidate's canonical bibliographic record before use. Do not conclude that no result publication exists from an identifier-only search. If an authoritative registry or dataset page says results exist but its HTML omits the table, try its official machine-readable API, JSON, or download route before declaring the values inaccessible.
+
 For a current medical comparison, reserve one discovery call for a date-bounded bibliographic query that combines the population, both interventions, and study design, and one route for registry-to-publication or citation-linkage checking. For a legal or regulatory question, plan explicit coverage of controlling definitions and scope, baseline duties, exceptions, enhanced duties, effective/transitional dates, enforcement, non-binding guidance, and disputed boundaries when relevant.
 
 When the user specifies an outcome horizon, search the exact window first. If exact head-to-head evidence is sparse, reserve at most one sensitivity search that changes only one dimension at a time: the nearest scheduled follow-up just outside the window, or an adjacent add-on/usual-care comparator that preserves the population, intervention, and outcome. Label that evidence as indirect and retain the original scope; never silently substitute it for the requested comparison. For a device, procedure, catheter, or operational intervention, include mechanical and workflow failure modes—such as migration, dislodgement, leakage, occlusion, removal, device failure, and management burden when applicable—alongside clinical adverse events.
@@ -268,7 +270,7 @@ Required full-report sections:
 1. Scope, date, and assumptions
 2. Method and source selection
 3. Findings organized by research question—not by agent
-4. Evidence table for material claims
+4. Decision-critical evidence synthesis
 5. Contradictions and limitations
 6. Decision implications or recommended actions
 7. Confidence
@@ -276,7 +278,7 @@ Required full-report sections:
 9. Refuted claims
 10. Bibliography
 
-In the evidence table, include claim ID, conclusion, supporting source IDs, validity date, and status. Keep inference separate from sourced fact. Label inference explicitly. Include only the decision-critical subset—normally no more than eight claims—and do not reproduce the complete internal ledger as a second report.
+In the evidence synthesis, include the conclusion, user-visible supporting links, material counter-evidence or applicability limit, and validity date. Keep inference separate from sourced fact and label it explicitly. Normally include no more than six decision-critical findings. Do not expose internal claim IDs, gate status, status reasons, or the complete ledger in the human report; those remain in the audit outputs.
 
 Keep source-reported and generalized conclusions visibly distinct. Write “the named trial reported…”, “Article 53 provides…”, or “the versioned documentation states…” for `attributed` claims. A policy or recommendation derived from several such facts is an inference and must be labeled and bounded by their population, jurisdiction, version, and date.
 
@@ -284,9 +286,11 @@ Keep the report decision-focused. Internal ledger counts, phase numbers, and sta
 
 Do not paste claim text verbatim merely to satisfy coverage. Write a natural decision report, preserve visible attribution where required, and omit verified ledger entries that do not change the conclusion. The audit requires representative verified-claim use, not a dump of every internal claim.
 
+Use the authoritative canonical document in the report when it was inspected. Do not add an unofficial mirror of the same document merely as a second citation; use and label a mirror only when it was necessary to inspect otherwise unavailable content.
+
 Do not repeat an unresolved or refuted claim's wording or claim ID outside its dedicated annex heading. In an executive summary, describe only the practical evidence gap in different, qualified language; the audit deliberately detects close paraphrases in assertive sections.
 
-Keep the annexes decision-facing: summarize each material unresolved or refuted issue once in plain language, state its practical consequence, and leave claim IDs, status reasons, and metadata-only discrepancies in the JSON audit outputs. Do not reproduce the unresolved or refuted ledger. If an annex has no material item, write `None`.
+Keep the annexes decision-facing: summarize each material unresolved or refuted issue once in plain language, state its practical consequence, and leave claim IDs, status reasons, and metadata-only discrepancies in the JSON audit outputs. Do not reproduce the unresolved or refuted ledger. If the limitations section identifies a decision-relevant open interpretation or evidence gap, summarize it here even when no ledger claim is unresolved. Write `None` only when neither the ledger nor the report contains a material open issue.
 
 ## Phase 7 — Audit and finalize
 

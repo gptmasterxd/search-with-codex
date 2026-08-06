@@ -44,7 +44,7 @@
         {
           "text": "The report compares analgesia and opioid outcomes separately from mobility or functional outcomes.",
           "patterns": [
-            "(?=.*통증)(?=.*오피오이드)(?=.*(?:보행|기능))"
+            "(?=.*(?:통증|pain))(?=.*(?:오피오이드|opioid))(?=.*(?:보행|기능|mobility|function))"
           ]
         },
         {

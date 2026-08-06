@@ -22,6 +22,13 @@ class BenchmarkHarnessTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in evals], [1, 2, 3])
         self.assertEqual({item["mode"] for item in evals}, {"standard", "strict"})
 
+    def test_medical_expectation_accepts_mixed_language_outcome_headings(self) -> None:
+        evals = benchmark.load_evals(ROOT / "benchmarks" / "evals.json")
+        medical = next(item for item in evals if item["id"] == 2)
+        patterns = medical["expectations"][0]["patterns"]
+        report = "## 통증\n결과\n## Opioid 사용량\n결과\n## 보행·기능\n결과"
+        self.assertTrue(benchmark.pattern_passed(report, patterns))
+
     def test_jsonl_metrics_use_final_turn_usage(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "events.jsonl"

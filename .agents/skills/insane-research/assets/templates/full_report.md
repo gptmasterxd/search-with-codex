@@ -8,11 +8,11 @@
 
 Organize by the user's questions, not by subagent.
 
-## 4. Material-claim evidence table
+## 4. Decision-critical evidence synthesis
 
-| Claim ID | Conclusion | Supporting sources | Counter-evidence | Valid at | Status |
-|---|---|---|---|---|---|
-| clm_001 |  | [src_001](https://example.org/primary) [src_002](https://independent.example/analysis) | — |  | verified |
+| Conclusion | Supporting sources | Counter-evidence or applicability limit | Valid at |
+|---|---|---|---|
+|  | [src_001](https://example.org/primary) [src_002](https://independent.example/analysis) | — |  |
 
 ## 5. Contradictions and limitations
 
@@ -22,11 +22,11 @@ Organize by the user's questions, not by subagent.
 
 ## 8. Unresolved claims
 
-List unresolved claims here without presenting them as settled.
+Summarize only material decision-facing gaps here without presenting them as settled. Do not include internal claim IDs or status reasons.
 
 ## 9. Refuted claims
 
-List discarded or contradicted claims here.
+Summarize only materially relevant discarded or contradicted claims. Do not include internal claim IDs or status reasons.
 
 ## 10. Bibliography
 
