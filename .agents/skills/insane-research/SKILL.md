@@ -113,7 +113,7 @@ Run no more than three research subagents concurrently in standard mode or four 
 
 When selecting a named custom role, do not combine `agent_type` with a full-history fork. Spawn it without inherited conversation history (`fork_turns: "none"` when that field exists) and provide a self-contained prompt containing the topic, mode, axis, date, evidence requirements, search budget, and return contract. Inspect the active spawn-tool schema rather than assuming field names.
 
-Use a default discovery budget of at most 6 search-tool calls per axis in standard mode and 8 in strict mode. If the user supplies one task-wide limit, the parent must divide that limit across axes; never multiply it into a per-axis allowance. One search-tool call may contain several independent query objects when the active schema supports batching. The parent may grant up to two additional calls only for a named unresolved high-risk claim and a concrete new evidence route, and never beyond a user-supplied cap. Page opens, document reads, search results, and query strings inside one batch are not additional search-tool calls.
+Use a default discovery budget of at most 6 search-tool calls per axis in standard mode and 8 in strict mode. If the user supplies one task-wide limit, the parent must divide that limit across axes; never multiply it into a per-axis allowance. For a current medical comparison with a task-wide cap, reserve one call for parent-side post-return closure; the initial research agents collectively receive at most `cap - 1`. Use the reserved call only for a decision-changing identifier/publication link, blocked canonical source with a concrete alternate route, or named outcome gap, and release it unused when no such gap exists. One search-tool call may contain several independent query objects when the active schema supports batching. The parent may grant up to two additional calls only for a named unresolved high-risk claim and a concrete new evidence route, and never beyond a user-supplied cap. Page opens, document reads, search results, and query strings inside one batch are not additional search-tool calls.
 
 Each subagent must:
 
@@ -132,6 +132,7 @@ Each subagent must:
 13. never write to the shared research session.
 14. return only decision-relevant evidence: normally no more than six distinct sources and four material claims per axis; exceed that only for a named strict-mode gap that cannot otherwise be represented.
 15. label each claim `claim_scope: attributed` or `claim_scope: synthesized`; attributed claim text must name the source or authority and stay within what that source directly reports or defines.
+16. within those limits, preserve the strongest decision-changing result and the strongest credible contrary result before redundant same-direction studies. A decision-changing source retained in `sources` must have its material result represented in `claims`; otherwise drop a less useful source or record only a concrete lead/dead end.
 
 A subagent prompt should include this completion condition:
 
@@ -160,7 +161,7 @@ After the first wave, collect novel leads. Run a second wave only for leads that
 
 Before closing a freshness-sensitive axis, have the parent or claim-verifier cross-check each decision-changing primary identifier returned in the preceding 24 months. This is a metadata and result-status check, not a duplicate broad search: open the authoritative identifier record, distinguish protocol/registry from published results, and correct the return before merge if they disagree.
 
-Before merge, compare the completed returns with every explicit research question and requested outcome in the plan. Each item must have a usable source/claim or a named evidence gap. If an item is missing and the task-wide budget remains, spend only the remaining calls on that named gap. When an exact horizon or comparator remains empty, use at most one of those remaining calls for the one-dimension sensitivity route defined in Phase 2 and record why the result is indirect. Do not stop merely because each agent returned something, and do not exhaust unused budget when coverage is already complete.
+Before merge, compare the completed returns with every explicit research question and requested outcome in the plan. Each item must have a usable source/claim or a named evidence gap. If an item is missing and the task-wide budget remains, spend only the remaining calls on that named gap. When an exact horizon or comparator remains empty, use at most one of those remaining calls for the one-dimension sensitivity route defined in Phase 2 and record why the result is indirect. In a capped current-medical task, spend the reserved closure call when a returned blocked publication, registry record, or `expand_leads` item supplies a concrete exact title, DOI, PMID, registry identifier, API, or repository route capable of changing the decision. Do not stop merely because each agent returned something, and do not exhaust unused budget when coverage is already complete.
 
 For every intervening amendment, correction, or implementation measure, record its exact title, status, effective date, operative provision, and material effect—or lack of effect—on the requested decision. Finding a newer document alone is not proof that the prior rule changed and does not justify a higher confidence rating.
 
@@ -285,6 +286,8 @@ Keep source-reported and generalized conclusions visibly distinct. Write “the 
 Keep the report decision-focused. Internal ledger counts, phase numbers, and statements that the workflow verified itself are not substantive evidence; mention process only when it explains a limitation or confidence judgment.
 
 Do not paste claim text verbatim merely to satisfy coverage. Write a natural decision report, preserve visible attribution where required, and omit verified ledger entries that do not change the conclusion. The audit requires representative verified-claim use, not a dump of every internal claim.
+
+When the verified inputs contain a decision-changing conflict, synthesize the strongest evidence on both sides in the findings; do not leave either side only in the bibliography. Prefer major reviews, controlling authorities, and recent direct evidence over redundant small studies. Write the evidence synthesis in the report language. Do not title it as an audit, ledger, verified-claim list, or “original text,” and do not repeat an English ledger sentence solely to satisfy the audit.
 
 Use the authoritative canonical document in the report when it was inspected. Do not add an unofficial mirror of the same document merely as a second citation; use and label a mirror only when it was necessary to inspect otherwise unavailable content.
 

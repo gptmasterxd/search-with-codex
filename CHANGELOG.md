@@ -38,6 +38,9 @@
 - Required registry-to-publication checks to combine exact identifiers, quoted official titles, and study metadata, with official machine-readable result tables as a fallback.
 - Removed internal claim IDs and gate statuses from the human evidence table and capped it at six decision-critical findings.
 - Corrected the medical benchmark expectation to recognize mixed Korean/English outcome terminology.
+- Reserved one capped medical discovery call for post-return closure of concrete identifiers, blocked sources, or named outcome gaps.
+- Prioritized the strongest decision-changing and contrary results within compact agent returns, and prohibited bibliography-only treatment of material conflicts.
+- Prevented translated or repeated ledger prose from being presented as original quotations in human reports.
 
 ## 3.1.0 — 2026-08-06
 

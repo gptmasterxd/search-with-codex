@@ -25,9 +25,11 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Current technical adoption work stays in standard mode unless safety, security, finance, or fundamental rights make strict mode necessary. Per-axis returns are capped more tightly, and reports show a decision-critical evidence subset instead of dumping the complete ledger.
 - Conflicting studies retain their accurately attributed results; only the cross-study synthesis remains unresolved. Legal freshness checks must identify the exact amended provision and its material effect.
 - Sparse exact-window comparisons get one bounded sensitivity search for the nearest follow-up or an adjacent add-on/usual-care comparator, with indirectness kept explicit. Device and procedure reviews also cover mechanical and workflow failures.
+- Capped current-medical runs reserve one discovery call for post-return identifier or blocked-source closure, and compact agent returns prioritize the strongest result and strongest credible counter-result.
 - Standard mode starts with 2–3 axes and at most three research agents; strict mode starts with 3–4 axes and at most four. Per-axis search and return budgets are bounded.
 - Merge review starts from compact warning output, and `researchctl brief` supplies one synthesis map instead of replaying the complete registry and ledger into model context.
 - Human reports omit internal claim IDs and gate statuses, limit the evidence synthesis to six decision-critical findings, and summarize only decision-relevant gaps in the annexes.
+- Decision-changing conflicts must present the strongest evidence on both sides in the findings; report prose never relabels ledger restatements as original quotations.
 - The plugin manifest now follows the validated Codex author and interface schema.
 
 These changes address the reviewed [v3.1.0 versus base Codex benchmark](benchmarks/results/v3.1.0-vs-base.md), where v3.1 retained strong strict-mode currentness but used 4.69× the tokens of base Codex, exposed no usable links in one report, and missed a recent direct medical trial.

@@ -1,7 +1,7 @@
 {
   "name": "insane-research-codex",
   "version": "3.2.0",
-  "generated_at": "2026-08-06T20:38:55Z",
+  "generated_at": "2026-08-06T20:51:48Z",
   "upstream": {
     "repository": "fivetaku/insane-research",
     "version": "2.8.2",
@@ -9,12 +9,12 @@
     "license": "MIT"
   },
   "file_count_excluding_manifest_and_checksums": 61,
-  "total_bytes_excluding_manifest_and_checksums": 474122,
+  "total_bytes_excluding_manifest_and_checksums": 478756,
   "files": [
     {
       "path": ".agents/skills/insane-research/SKILL.md",
-      "bytes": 25674,
-      "sha256": "180485cd6ac4e9fee9c60eb9ca6d9482562519be20a7da27ac2356307f9aadf9"
+      "bytes": 27156,
+      "sha256": "2ed9436bd11f3132f6547fd88c97ddea7af2912395d7ada94af77b6acf0d1df8"
     },
     {
       "path": ".agents/skills/insane-research/agents/openai.yaml",
@@ -68,13 +68,13 @@
     },
     {
       "path": ".codex/agents/academic-researcher.toml",
-      "bytes": 4197,
-      "sha256": "6229e1e2ba3e3cd5c312b0e55fddef98d7414f4387217e444eb30a37882df285"
+      "bytes": 4443,
+      "sha256": "49d0232b83f5ad0b393658499b49aab9db247c3dcf3735dfebca7ecbf8e5f22e"
     },
     {
       "path": ".codex/agents/claim-verifier.toml",
-      "bytes": 2897,
-      "sha256": "264322e51431e2f66198f63ffebdbc60f7edf7dabb9fa5b50a781e4ae2da5d67"
+      "bytes": 3143,
+      "sha256": "4c9b22a094c7f430afcf9fd90f30ffb5f249f3aff4c8fbdfc67d1bbf54b1a250"
     },
     {
       "path": ".codex/agents/official-source-researcher.toml",
@@ -118,8 +118,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 6301,
-      "sha256": "bb51a70c765540eab89b6272e98063cd8d41a19012c1c8a559734c85c1dd20cb"
+      "bytes": 6708,
+      "sha256": "1800a37145c094fe9bedc07015119c5ae75713ab89d10569611522ed8e6c0163"
     },
     {
       "path": "LICENSE",
@@ -138,13 +138,13 @@
     },
     {
       "path": "README.ko.md",
-      "bytes": 16870,
-      "sha256": "7431745f62cbcf7ee13aece90b26bb6de1a61595770925801d7b967f70fdf7ea"
+      "bytes": 17264,
+      "sha256": "3c0b84c7f38c1eb30425e6191c7d1dcece95c83c4f0723a58c751640eac8e0b8"
     },
     {
       "path": "README.md",
-      "bytes": 8665,
-      "sha256": "16017290d9e46b6952457ad434f4f575ec7c3115547b0734c8ba90b2eac08c72"
+      "bytes": 9042,
+      "sha256": "854f0dfb91f682b0178dd93a0646214f0e5ad40591f2c31ef8e603e52bbe5b85"
     },
     {
       "path": "SECURITY.md",
@@ -253,8 +253,8 @@
     },
     {
       "path": "skills/insane-research/SKILL.md",
-      "bytes": 25674,
-      "sha256": "180485cd6ac4e9fee9c60eb9ca6d9482562519be20a7da27ac2356307f9aadf9"
+      "bytes": 27156,
+      "sha256": "2ed9436bd11f3132f6547fd88c97ddea7af2912395d7ada94af77b6acf0d1df8"
     },
     {
       "path": "skills/insane-research/agents/openai.yaml",
