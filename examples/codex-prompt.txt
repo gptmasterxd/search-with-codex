@@ -1,0 +1,12 @@
+$insane-research
+
+Research question: Compare rehabilitation strategies for knee flexion ROM after total knee arthroplasty during the first six postoperative months.
+
+Requirements:
+- Strict mode
+- Adults after primary TKA
+- Prioritize clinical guidelines, systematic reviews, and RCTs
+- Separate PROM from AROM outcomes
+- Address expected pain during ROM work, dose, adverse events, and the evidence for pursuing flexion beyond 140 degrees
+- State what is established, uncertain, and clinically inferred
+- Korean report for a physical therapist

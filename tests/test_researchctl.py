@@ -1,0 +1,589 @@
+from __future__ import annotations
+
+import contextlib
+import copy
+import importlib.util
+import io
+import json
+import tempfile
+import unittest
+from types import SimpleNamespace
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+CTL = ROOT / "skills" / "insane-research" / "scripts" / "researchctl.py"
+
+spec = importlib.util.spec_from_file_location("researchctl_test", CTL)
+assert spec is not None and spec.loader is not None
+researchctl = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(researchctl)
+
+
+SRC_A = {
+    "url": "https://a.example.com/report/?utm_source=test",
+    "title": "Primary report",
+    "domain": "a.example.com",
+    "source_family": "a.example.com",
+    "quality_rating": "A",
+    "primary": True,
+    "published_at": "2026-07-01",
+    "valid_at": "2026-07-01",
+}
+SRC_B = {
+    "url": "https://b.example.org/analysis",
+    "title": "Independent analysis",
+    "domain": "b.example.org",
+    "source_family": "b.example.org",
+    "quality_rating": "B",
+    "primary": False,
+    "published_at": "2026-07-02",
+    "valid_at": "2026-07-02",
+}
+SRC_C = {
+    "url": "https://c.example.net/data",
+    "title": "Independent dataset",
+    "domain": "c.example.net",
+    "source_family": "c.example.net",
+    "quality_rating": "B",
+    "primary": False,
+    "published_at": "2026-07-03",
+    "valid_at": "2026-07-03",
+}
+
+
+def run_ctl(*args: str) -> SimpleNamespace:
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        returncode = researchctl.main(list(args))
+    return SimpleNamespace(returncode=returncode, stdout=stdout.getvalue(), stderr=stderr.getvalue())
+
+
+def write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_jsonl(path: Path):
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+class ResearchCtlTests(unittest.TestCase):
+    def make_session(self, base: Path, mode: str = "standard") -> Path:
+        session = base / "session"
+        for directory in ("artifacts", "sources", "outputs", "raw"):
+            (session / directory).mkdir(parents=True, exist_ok=True)
+        write_json(
+            session / "state.json",
+            {
+                "session_id": "session",
+                "topic": "fixture",
+                "mode": mode,
+                "phase": 1,
+                "status": "active",
+                "verification": {"passed": False},
+            },
+        )
+        return session
+
+    def make_agent_return(self, *, counter_search: str = "No credible refutation found") -> list[dict]:
+        return [
+            {
+                "axis": "official",
+                "sources": [copy.deepcopy(SRC_A), copy.deepcopy(SRC_B)],
+                "claims": [
+                    {
+                        "text": "The defined metric was 42 in July 2026.",
+                        "risk": "high",
+                        "claim_type": "numeric",
+                        "source_urls": [
+                            "https://a.example.com/report",
+                            "https://b.example.org/analysis",
+                        ],
+                        "counter_search": counter_search,
+                        "counter_refuted": False,
+                        "conflicting": False,
+                        "primary_source": True,
+                        "valid_at": "2026-07-01",
+                    }
+                ],
+                "queries_run": ["Metric July 2026", "metric correction July 2026"],
+                "search_count": 2,
+                "expand_leads": [{"lead": "Check definitions", "why": "May alter denominator", "angle": "metric methodology"}],
+                "dead_ends": [],
+            },
+            {
+                "axis": "cross-check",
+                "sources": [
+                    {
+                        **SRC_A,
+                        "url": "https://a.example.com/report/",
+                        "quality_rating": "B",
+                        "title": "Longer primary report title",
+                    }
+                ],
+                "claims": [],
+                "queries_run": ["  METRIC   JULY 2026  "],
+                "search_count": 1,
+                "expand_leads": [],
+                "dead_ends": ["No separate historical series"],
+            },
+        ]
+
+    def test_url_normalization_removes_tracking_and_trailing_slash(self):
+        self.assertEqual(
+            researchctl.normalize_url("HTTPS://Example.COM:443/a/?utm_source=x&b=2&a=1#frag"),
+            "https://example.com/a?a=1&b=2",
+        )
+        self.assertEqual(researchctl.normalize_url("https://example.com:not-a-port/x"), "")
+        self.assertEqual(researchctl.normalize_url("https://[broken/x"), "")
+        self.assertEqual(researchctl.normalize_url("not a valid host/path"), "")
+
+    def test_init_creates_resumable_session(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_ctl(
+                "init",
+                "--topic",
+                "테스트 연구",
+                "--root",
+                temp,
+                "--mode",
+                "strict",
+                "--json",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            session = Path(payload["session"])
+            self.assertTrue((session / "state.json").exists())
+            self.assertTrue((session / "artifacts" / "research_plan.md").exists())
+            self.assertEqual(read_json(session / "state.json")["mode"], "strict")
+
+    def test_merge_deduplicates_urls_normalizes_grade_and_logs_queries(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            result = run_ctl("merge", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            sources = read_jsonl(session / "sources" / "sources.jsonl")
+            self.assertEqual(len(sources), 2)
+            a_source = next(source for source in sources if source["domain"] == "a.example.com")
+            self.assertEqual(a_source["quality_rating"], "B")  # tie A/B -> conservative B
+            self.assertEqual(a_source["url"], "https://a.example.com/report")
+            claims = read_jsonl(session / "artifacts" / "claim_ledger.jsonl")
+            self.assertEqual(claims[0]["source_ids"], ["src_001", "src_002"])
+            query_log = (session / "artifacts" / "query_log.md").read_text(encoding="utf-8")
+            self.assertIn("DUP of", query_log)
+            self.assertIn("Reported search calls: 3", query_log)
+            self.assertIn("Check definitions", (session / "artifacts" / "expansion_log.md").read_text(encoding="utf-8"))
+
+    def test_merge_corrects_declared_domain_from_url(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()[:1]
+            returns[0]["sources"][0]["domain"] = "spoofed.example"
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertTrue(any("URL host" in warning for warning in payload["warnings"]))
+            sources = read_jsonl(session / "sources" / "sources.jsonl")
+            self.assertEqual(sources[0]["domain"], "a.example.com")
+
+    def test_conflicting_families_on_one_domain_collapse_to_domain(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "family-check",
+                    "sources": [
+                        {**SRC_A, "source_family": "family-one"},
+                        {
+                            **SRC_A,
+                            "url": "https://a.example.com/second",
+                            "title": "Second page",
+                            "source_family": "family-two",
+                        },
+                    ],
+                    "claims": [
+                        {
+                            "text": "Two pages on one domain do not establish independence.",
+                            "risk": "normal",
+                            "claim_type": "descriptive",
+                            "source_urls": [SRC_A["url"], "https://a.example.com/second"],
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            result = run_ctl("merge", "--session", str(session), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertTrue(any("source_family 충돌" in warning for warning in payload["warnings"]))
+            sources = read_jsonl(session / "sources" / "sources.jsonl")
+            self.assertEqual({source["source_family"] for source in sources}, {"a.example.com"})
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("< 2", unresolved[0]["status_reason"])
+
+    def test_shared_family_across_domains_is_not_independent(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()[:1]
+            returns[0]["sources"][0]["source_family"] = "shared-wire"
+            returns[0]["sources"][1]["source_family"] = "shared-wire"
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("독립 출처 계열 1개", unresolved[0]["status_reason"])
+
+    def test_duplicate_claims_merge_evidence_across_agents(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            claim_text = "The merged metric was 42 in July 2026."
+            returns = [
+                {
+                    "axis": "primary",
+                    "sources": [copy.deepcopy(SRC_A)],
+                    "claims": [
+                        {
+                            "text": claim_text,
+                            "risk": "high",
+                            "claim_type": "numeric",
+                            "source_urls": [SRC_A["url"]],
+                            "counter_search": "Checked official corrections; none found.",
+                            "primary_source": True,
+                            "valid_at": "2026-07-01",
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                },
+                {
+                    "axis": "independent",
+                    "sources": [copy.deepcopy(SRC_B)],
+                    "claims": [
+                        {
+                            "text": claim_text,
+                            "risk": "high",
+                            "claim_type": "numeric",
+                            "source_urls": [SRC_B["url"]],
+                            "counter_search": "Checked independent criticism; none defeated the claim.",
+                            "primary_source": False,
+                            "valid_at": "2026-07-01",
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                },
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            claims = read_jsonl(session / "artifacts" / "claim_ledger.jsonl")
+            self.assertEqual(len(claims), 1)
+            self.assertEqual(claims[0]["source_ids"], ["src_001", "src_002"])
+            self.assertEqual(claims[0]["axes"], ["primary", "independent"])
+            self.assertIn("official corrections", claims[0]["counter_search"])
+            self.assertIn("independent criticism", claims[0]["counter_search"])
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
+
+    def test_standard_validation_verifies_high_risk_claim(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            verified = read_json(session / "outputs" / "verified_claims.json")
+            self.assertEqual(len(verified), 1)
+            state = read_json(session / "state.json")
+            self.assertTrue(state["verification"]["passed"])
+            self.assertEqual(len(state["verification"]["signature"]), 64)
+
+    def test_missing_counter_search_is_exit_one(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return(counter_search=""))
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("counter_search", result.stderr)
+
+    def test_primary_claim_flag_must_be_backed_by_primary_source_record(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "primary-consistency",
+                    "sources": [copy.deepcopy(SRC_B), copy.deepcopy(SRC_C)],
+                    "claims": [
+                        {
+                            "text": "A high-risk claim with an unbacked primary flag.",
+                            "risk": "high",
+                            "claim_type": "numeric",
+                            "source_urls": [SRC_B["url"], SRC_C["url"]],
+                            "counter_search": "No refutation found.",
+                            "primary_source": True,
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("source registry", unresolved[0]["status_reason"])
+
+    def test_counter_refuted_without_evidence_is_process_violation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "counter",
+                    "sources": [],
+                    "claims": [
+                        {
+                            "text": "An unsupported refutation marker must not pass.",
+                            "risk": "high",
+                            "claim_type": "causal",
+                            "source_urls": [],
+                            "counter_search": "A counter search was claimed.",
+                            "counter_refuted": True,
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("반증 출처", result.stderr)
+
+    def test_counter_refuted_with_registered_evidence_is_refuted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "counter",
+                    "sources": [copy.deepcopy(SRC_B)],
+                    "claims": [
+                        {
+                            "text": "A claim defeated by registered counter-evidence.",
+                            "risk": "high",
+                            "claim_type": "causal",
+                            "source_urls": [SRC_B["url"]],
+                            "counter_search": "Independent evidence directly contradicted the claim.",
+                            "counter_refuted": True,
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            self.assertEqual(len(read_json(session / "outputs" / "refuted_claims.json")), 1)
+
+    def test_unknown_source_id_is_hard_error_exit_two(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            (session / "sources" / "sources.jsonl").write_text(
+                json.dumps({"id": "src_001", **SRC_A}) + "\n", encoding="utf-8"
+            )
+            (session / "artifacts" / "claim_ledger.jsonl").write_text(
+                json.dumps(
+                    {
+                        "claim_id": "clm_001",
+                        "text": "Unknown source claim",
+                        "risk": "normal",
+                        "claim_type": "descriptive",
+                        "source_ids": ["src_999"],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("src_999", result.stderr)
+
+    def test_strict_mode_requires_three_source_families(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 0)
+            unresolved = read_json(session / "outputs" / "unresolved_claims.json")
+            self.assertEqual(len(unresolved), 1)
+            self.assertIn("< 3", unresolved[0]["status_reason"])
+
+    def test_strict_mode_verifies_with_three_families(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp), mode="strict")
+            returns = self.make_agent_return()
+            returns[0]["sources"].append(SRC_C)
+            returns[0]["claims"][0]["source_urls"].append(SRC_C["url"])
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
+
+    def test_executable_claim_requires_and_accepts_proof(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = [
+                {
+                    "axis": "runtime",
+                    "sources": [SRC_A],
+                    "claims": [
+                        {
+                            "text": "The fixture command prints OK.",
+                            "risk": "high",
+                            "claim_type": "executable",
+                            "source_urls": [SRC_A["url"]],
+                            "execution_proof": {
+                                "script": "python3 fixture.py",
+                                "output": "OK",
+                                "env": "Python 3.13",
+                                "verdict": "confirmed",
+                            },
+                        }
+                    ],
+                    "queries_run": [],
+                    "search_count": 0,
+                    "expand_leads": [],
+                    "dead_ends": [],
+                }
+            ]
+            write_json(session / "artifacts" / "agent_returns.json", returns)
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
+
+    def test_hard_error_invalidates_previous_verified_allowlist(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            self.assertEqual(len(read_json(session / "outputs" / "verified_claims.json")), 1)
+            claims = read_jsonl(session / "artifacts" / "claim_ledger.jsonl")
+            claims[0]["source_ids"] = ["src_999"]
+            (session / "artifacts" / "claim_ledger.jsonl").write_text(
+                "\n".join(json.dumps(claim) for claim in claims) + "\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("validate", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(read_json(session / "outputs" / "verified_claims.json"), [])
+            state = read_json(session / "state.json")
+            self.assertFalse(state["verification"]["passed"])
+            self.assertIsNone(state["verification"]["signature"])
+
+    def test_eval_requires_successful_verification_gate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            (session / "outputs" / "01_full_report.md").write_text("# Report\n", encoding="utf-8")
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("검증 게이트", result.stderr)
+
+    def test_report_eval_passes_with_registered_citations(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            write_json(session / "artifacts" / "agent_returns.json", self.make_agent_return())
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. [src_001] [src_002]\n\n"
+                "## Unresolved claims\n\nNone.\n\n## Refuted claims\n\nNone.\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(read_json(session / "outputs" / "eval_report.json")["verdict"], "PASS")
+
+    def test_report_eval_rejects_unresolved_claim_leak(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()
+            returns[0]["claims"][0]["source_urls"] = [SRC_A["url"]]
+            write_json(session / "artifacts" / "agent_returns.json", returns[:1])
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe defined metric was 42 in July 2026. [src_001]\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 1)
+            report = read_json(session / "outputs" / "eval_report.json")
+            self.assertEqual(report["verdict"], "FAIL")
+            self.assertEqual(report["counts"]["leaked_claims"], 1)
+
+    def test_unresolved_claim_is_allowed_in_annex(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            returns = self.make_agent_return()
+            returns[0]["claims"][0]["source_urls"] = [SRC_A["url"]]
+            write_json(session / "artifacts" / "agent_returns.json", returns[:1])
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nNo verified conclusion. [src_001]\n\n"
+                "## Unresolved claims\n\nThe defined metric was 42 in July 2026. [src_001]\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_shared_source_does_not_create_false_unresolved_leak(self):
+        with tempfile.TemporaryDirectory() as temp:
+            session = self.make_session(Path(temp))
+            # One unresolved claim exists, but the main body cites its source for a different sentence.
+            returns = self.make_agent_return()
+            returns[0]["claims"][0]["source_urls"] = [SRC_A["url"]]
+            write_json(session / "artifacts" / "agent_returns.json", returns[:1])
+            self.assertEqual(run_ctl("merge", "--session", str(session)).returncode, 0)
+            self.assertEqual(run_ctl("validate", "--session", str(session)).returncode, 0)
+            (session / "outputs" / "01_full_report.md").write_text(
+                "# Report\n\nThe agency published a report in July. [src_001]\n",
+                encoding="utf-8",
+            )
+            result = run_ctl("eval", "--session", str(session))
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

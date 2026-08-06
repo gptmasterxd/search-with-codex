@@ -1,0 +1,5 @@
+# Copy relevant settings into your project or user Codex configuration.
+# Keep the fan-out modest because each subagent consumes its own context and tools.
+
+[agents]
+max_concurrent_threads_per_session = 4

@@ -1,0 +1,13 @@
+insane-research-codex
+
+Based on insane-research by fivetaku:
+https://github.com/fivetaku/insane-research
+
+Upstream version inspected: 2.8.2
+Upstream commit: 68f7e59168a9c9b0a586bd4122cb7a229e119d9c
+Upstream license: MIT
+
+This derivative preserves the upstream copyright notice and rewrites the
+Claude Code-specific orchestration for OpenAI Codex skills, subagents, and
+repository-level configuration. It is not an official release of the upstream
+author, Anthropic, or OpenAI.

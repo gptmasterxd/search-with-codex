@@ -1,0 +1,56 @@
+[
+  {
+    "axis": "official-evidence",
+    "summary": "Official evidence axis example",
+    "sources": [
+      {
+        "url": "https://example.gov/report?utm_source=test",
+        "title": "Official report",
+        "domain": "example.gov",
+        "source_family": "example.gov",
+        "publisher": "Example Agency",
+        "source_type": "official",
+        "quality_rating": "A",
+        "primary": true,
+        "published_at": "2026-07-01",
+        "valid_at": "2026-07-01",
+        "notes": "Example only; replace with real retrieved evidence."
+      },
+      {
+        "url": "https://independent.example.org/analysis",
+        "title": "Independent analysis",
+        "domain": "independent.example.org",
+        "source_family": "independent.example.org",
+        "publisher": "Independent Institute",
+        "source_type": "research",
+        "quality_rating": "B",
+        "primary": false,
+        "published_at": "2026-07-15",
+        "valid_at": "2026-07-15"
+      }
+    ],
+    "claims": [
+      {
+        "text": "Example Agency reported a value of 42 for the defined metric in July 2026.",
+        "risk": "high",
+        "claim_type": "numeric",
+        "source_urls": [
+          "https://example.gov/report",
+          "https://independent.example.org/analysis"
+        ],
+        "counter_search": "Searched for corrections and alternative measurements; no credible refutation found in this example.",
+        "counter_refuted": false,
+        "conflicting": false,
+        "primary_source": true,
+        "valid_at": "2026-07-01"
+      }
+    ],
+    "queries_run": [
+      "site:example.gov metric report July 2026",
+      "example metric correction criticism 2026"
+    ],
+    "search_count": 2,
+    "expand_leads": [],
+    "dead_ends": []
+  }
+]
