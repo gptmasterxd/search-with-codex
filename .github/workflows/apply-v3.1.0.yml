@@ -1,0 +1,60 @@
+name: Apply v3.1.0 upgrade
+
+on:
+  push:
+    branches:
+      - codex-hardening-v3.1.0
+    paths:
+      - .github/workflows/apply-v3.1.0.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify, apply, and test payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          chunks=(.upgrade-payload/chunk-*)
+          test "${#chunks[@]}" -eq 12
+          for index in $(seq -w 0 10); do
+            test "$(wc -c < ".upgrade-payload/chunk-${index}")" -eq 8000
+          done
+          test "$(wc -c < .upgrade-payload/chunk-011)" -eq 4788
+
+          cat .upgrade-payload/chunk-* > /tmp/upgrade.b64
+          base64 --decode /tmp/upgrade.b64 > /tmp/upgrade.tar.gz
+          echo "fb2cbc1ed2c370aa8e13bf10bb75ced956cc481fe019435762baa6604be3e54d  /tmp/upgrade.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/upgrade.tar.gz -C "$GITHUB_WORKSPACE"
+
+          rm -rf .upgrade-payload
+          rm -f .github/workflows/apply-v3.1.0.yml
+
+          python3 -m compileall -q skills scripts tests
+          python3 -m unittest discover -s tests -v
+          python3 scripts/verify_package.py
+          python3 scripts/update_release_metadata.py --check
+          python3 scripts/verify_release.py
+          git diff --check
+
+      - name: Commit validated upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Harden verification and release integrity (v3.1.0)"
+          git push origin HEAD:codex-hardening-v3.1.0
