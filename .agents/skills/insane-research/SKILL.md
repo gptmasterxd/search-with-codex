@@ -33,7 +33,7 @@ If `doctor` fails, report the exact failing check. Do not continue with a fabric
 ## Invocation modes
 
 - **Standard:** most research. Two independent source families are required for a verified claim.
-- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. Strict high-risk claims require three independent source families.
+- **Strict:** use automatically for medical, legal, financial, regulatory, safety-critical, or materially current claims, and whenever the user asks for strict verification. Strict high-risk claims require three independent source families, including at least two A/B-grade source families.
 - **Resume:** when a session path or session ID is supplied, read its `state.json`, artifacts, source registry, and existing outputs. Continue from the first incomplete phase rather than restarting.
 - **Status:** run `python3 "$CTL" status --root RESEARCH`.
 
@@ -106,9 +106,10 @@ Each subagent must:
 4. inspect source dates and distinguish publication date from the date the content is valid for;
 5. prefer primary sources before aggregators;
 6. run at least one counter-search for each high-risk claim;
-7. return exactly one JSON object matching `references/agent_return_schema.md`;
-8. include all queries actually run and any dead ends;
-9. never write to the shared research session.
+7. keep supporting evidence in `source_urls` and contrary evidence in `counter_source_urls`; never reuse a supporting source as the sole proof of refutation;
+8. return exactly one JSON object matching `references/agent_return_schema.md`;
+9. include all queries actually run and any dead ends;
+10. never write to the shared research session.
 
 A subagent prompt should include this completion condition:
 
@@ -158,7 +159,7 @@ Review:
 - `artifacts/query_log.md`
 - `artifacts/expansion_log.md`
 
-Resolve meaningful merge warnings. A warning about an unregistered claim URL means the source must be added and the merge rerun, or the claim must remain unsupported and unresolved.
+Resolve meaningful merge warnings. A warning about an unregistered supporting or counter-evidence URL means the source must be added and the merge rerun, or the claim must remain unsupported and unresolved.
 
 ## Phase 5 — Deterministic claim gate before synthesis
 
@@ -173,7 +174,7 @@ Use `--strict` only to override a standard session into strict verification.
 Exit codes:
 
 - `0`: gate completed and no required process step is missing;
-- `1`: correctable process violation, such as a missing counter-search or executable proof;
+- `1`: correctable process violation, such as a missing counter-search, missing separately registered counter-evidence, or incomplete executable proof;
 - `2`: hard data error, such as malformed JSON, a missing source ID, or an invalid grade.
 
 The gate writes:
@@ -184,6 +185,10 @@ The gate writes:
 - `outputs/verification_report.json`
 
 Only a verified high-risk claim may appear as an unqualified assertion in the report body. Unresolved and refuted claims belong in clearly labeled annex sections and may not be reframed as verified.
+
+For `counter_refuted: true`, the ledger must contain separately registered `counter_source_ids`. They may not overlap the claim's supporting `source_ids`. Standard mode requires at least one A/B/C counter-evidence source; strict high-risk mode requires A/B counter-evidence. A free-text `counter_search` note alone never proves refutation.
+
+The verification signature covers the source registry, claim ledger, and all verified/unresolved/refuted outputs. `merge` invalidates any previous signature. Standalone `eval` also recomputes the signature and refuses stale evidence; rerun `validate` after any evidence edit.
 
 ### Executable claims
 
@@ -232,7 +237,7 @@ The report audit checks:
 
 - whether every cited source ID exists;
 - whether unresolved or refuted claims leaked into the assertive body;
-- whether verified claims are actually used;
+- whether verified claims are actually used with an adjacent supporting source marker, rather than counting citations elsewhere in the report;
 - how many registered sources were never cited.
 
 A nonzero result is not a formatting inconvenience. Read `outputs/eval_report.json`, fix the report or evidence, and rerun. Do not mark the session complete while the audit verdict is `FAIL`.

@@ -15,6 +15,21 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - One standard-library CLI for sessions, merge, verification, and report audit
 - Source-family independence, strict mode, counter-searches, primary-source checks, executable proof, signed verification state, and unresolved/refuted leakage checks
 
+## 3.1 reliability hardening
+
+- A standalone report audit recomputes the verification signature and rejects any source registry, claim ledger, or status-output change made after validation.
+- Supporting evidence (`source_urls`) and defeating counter-evidence (`counter_source_urls`) are stored separately. A supporting source can no longer be reused as the sole proof that a claim was refuted.
+- Strict high-risk verification requires three independent source families and at least two A/B-grade families.
+- Executable proof requires command, output, environment/version metadata, and verdict.
+- Report coverage counts a verified claim only when the claim itself and an adjacent supporting source marker appear together.
+- Source URL normalization accepts only HTTP(S), rejects embedded credentials, and safely preserves IPv6 hosts.
+- Release metadata is generated and checked for both hash mismatches and unlisted distributable files.
+- GitHub Actions runs the standard-library test and integrity suite across Python 3.9, 3.11, and 3.14.
+
+### Upgrading existing 3.0 sessions
+
+Existing 3.0 session directories can be retained, but claims with `counter_refuted: true` do not yet have separate `counter_source_urls`. Under 3.1 those claims may become `unresolved` or a process violation until defeating evidence is collected and recorded. Update only the affected entries in `artifacts/agent_returns.json`, then rerun `merge → validate → finalize`. Version 3.1 also strengthens the verification signature, so invalidating and regenerating prior `verification_report.json` and `eval_report.json` is expected.
+
 ## Install
 
 User-wide:
@@ -66,7 +81,16 @@ Run the control utility directly from this repository:
 python3 -m compileall -q skills/insane-research/scripts
 python3 -m unittest discover -s tests -v
 python3 scripts/verify_package.py
-python3 scripts/verify_release.py  # after release checksums are generated
+python3 scripts/update_release_metadata.py --check
+python3 scripts/verify_release.py
+```
+
+After an intentional release-file change, regenerate `MANIFEST.json` and `CHECKSUMS.sha256`, review the diff, and rerun the checks:
+
+```bash
+python3 scripts/update_release_metadata.py
+python3 scripts/update_release_metadata.py --check
+python3 scripts/verify_release.py
 ```
 
 For the complete Korean guide, see `README.ko.md`. For attribution and design differences, see `NOTICE`, `UPSTREAM.md`, and `PORTING_NOTES.md`.

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Sequence, Union
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-VERSION = "3.0.0-codex.1"
+VERSION = "3.1.0"
 VALID_GRADES = ("A", "B", "C", "D", "E")
 GRADE_RANK = {grade: index for index, grade in enumerate(VALID_GRADES)}
 VALID_RISKS = {"normal", "high"}
@@ -87,6 +87,8 @@ def read_json(path: Path) -> Any:
         return json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
         raise ResearchError(f"파일을 찾을 수 없습니다: {path}") from exc
+    except (OSError, UnicodeError) as exc:
+        raise ResearchError(f"파일 읽기 실패: {path} — {exc}") from exc
     except json.JSONDecodeError as exc:
         raise ResearchError(f"JSON 파싱 실패: {path}:{exc.lineno}:{exc.colno} — {exc.msg}") from exc
 
@@ -96,7 +98,11 @@ def read_jsonl(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     errors: list[str] = []
     if not path.exists():
         return rows, [f"파일 없음: {path}"]
-    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        return rows, [f"파일 읽기 실패: {path} — {exc}"]
+    for line_no, raw in enumerate(text.splitlines(), 1):
         if not raw.strip():
             continue
         try:
@@ -114,7 +120,7 @@ def read_jsonl(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
 def normalize_url(raw_url: str) -> str:
     """Normalize only safe equivalences; do not rewrite semantic URL parts."""
     raw_url = (raw_url or "").strip()
-    if not raw_url:
+    if not raw_url or any(ord(char) < 32 or ord(char) == 127 for char in raw_url):
         return ""
     candidate = raw_url if "://" in raw_url else "https://" + raw_url
     try:
@@ -122,6 +128,10 @@ def normalize_url(raw_url: str) -> str:
     except ValueError:
         return ""
     scheme = parts.scheme.lower() or "https"
+    if scheme not in {"http", "https"}:
+        return ""
+    if parts.username is not None or parts.password is not None:
+        return ""
     try:
         hostname = (parts.hostname or "").lower().rstrip(".")
         port = parts.port
@@ -129,10 +139,11 @@ def normalize_url(raw_url: str) -> str:
         return ""
     if not hostname or any(char.isspace() for char in hostname):
         return ""
+    display_host = f"[{hostname}]" if ":" in hostname else hostname
     if port and not ((scheme == "http" and port == 80) or (scheme == "https" and port == 443)):
-        netloc = f"{hostname}:{port}"
+        netloc = f"{display_host}:{port}"
     else:
-        netloc = hostname
+        netloc = display_host
     path = re.sub(r"/{2,}", "/", parts.path or "/")
     if path != "/":
         path = path.rstrip("/")
@@ -220,7 +231,7 @@ def command_init(args: argparse.Namespace) -> int:
     for directory in ("artifacts", "sources", "outputs", "raw"):
         (session / directory).mkdir(parents=True, exist_ok=True)
     state = {
-        "schema_version": 1,
+        "schema_version": 2,
         "tool_version": VERSION,
         "session_id": session.name,
         "topic": args.topic.strip(),
@@ -297,6 +308,34 @@ def _validate_agent_return_shape(value: Any, index: int, warnings: list[str]) ->
     normalized["sources"] = sources
     normalized["claims"] = claims
     return normalized
+
+
+def _map_claim_source_refs(
+    raw_claim: Mapping[str, Any],
+    *,
+    url_field: str,
+    id_field: str,
+    source_id_by_url: Mapping[str, str],
+    valid_source_ids: set[str],
+) -> tuple[list[str], list[str]]:
+    """Resolve claim URLs/IDs without conflating support and counter-evidence."""
+    resolved_ids: list[str] = []
+    unresolved_urls: list[str] = []
+    raw_urls = raw_claim.get(url_field) or []
+    if isinstance(raw_urls, list):
+        for raw_url in raw_urls:
+            normalized = normalize_url(str(raw_url))
+            source_id = source_id_by_url.get(normalized)
+            if source_id and source_id not in resolved_ids:
+                resolved_ids.append(source_id)
+            elif normalized:
+                unresolved_urls.append(normalized)
+    raw_ids = raw_claim.get(id_field) or []
+    if isinstance(raw_ids, list):
+        for source_id in raw_ids:
+            if isinstance(source_id, str) and source_id in valid_source_ids and source_id not in resolved_ids:
+                resolved_ids.append(source_id)
+    return resolved_ids, list(dict.fromkeys(unresolved_urls))
 
 
 def command_merge(args: argparse.Namespace) -> int:
@@ -416,25 +455,26 @@ def command_merge(args: argparse.Namespace) -> int:
             if not claim_text:
                 warnings.append(f"{axis}: claim[{claim_index}] text 누락 — 건너뜀")
                 continue
-            source_urls = raw_claim.get("source_urls") or []
-            if not isinstance(source_urls, list):
-                source_urls = []
-            source_ids: list[str] = []
-            unresolved_urls: list[str] = []
-            for raw_url in source_urls:
-                normalized = normalize_url(str(raw_url))
-                source_id = source_id_by_url.get(normalized)
-                if source_id and source_id not in source_ids:
-                    source_ids.append(source_id)
-                elif normalized:
-                    unresolved_urls.append(normalized)
-            raw_source_ids = raw_claim.get("source_ids") or []
-            if isinstance(raw_source_ids, list):
-                for source_id in raw_source_ids:
-                    if isinstance(source_id, str) and source_id in valid_source_ids and source_id not in source_ids:
-                        source_ids.append(source_id)
+            source_ids, unresolved_urls = _map_claim_source_refs(
+                raw_claim,
+                url_field="source_urls",
+                id_field="source_ids",
+                source_id_by_url=source_id_by_url,
+                valid_source_ids=valid_source_ids,
+            )
+            counter_source_ids, unresolved_counter_urls = _map_claim_source_refs(
+                raw_claim,
+                url_field="counter_source_urls",
+                id_field="counter_source_ids",
+                source_id_by_url=source_id_by_url,
+                valid_source_ids=valid_source_ids,
+            )
             if unresolved_urls:
                 warnings.append(f"{axis}: 주장 '{claim_text[:60]}'의 미등록 URL {unresolved_urls}")
+            if unresolved_counter_urls:
+                warnings.append(
+                    f"{axis}: 주장 '{claim_text[:60]}'의 미등록 반증 URL {unresolved_counter_urls}"
+                )
             risk = str(raw_claim.get("risk") or "normal").strip().lower()
             if risk not in VALID_RISKS:
                 warnings.append(f"{axis}: 주장 '{claim_text[:60]}' risk 오류 — high 적용")
@@ -450,6 +490,7 @@ def command_merge(args: argparse.Namespace) -> int:
                 "risk": risk,
                 "claim_type": claim_type,
                 "source_ids": source_ids,
+                "counter_source_ids": counter_source_ids,
                 "counter_search": counter_search,
                 "counter_refuted": bool(raw_claim.get("counter_refuted", False)),
                 "conflicting": bool(raw_claim.get("conflicting", False)),
@@ -459,6 +500,8 @@ def command_merge(args: argparse.Namespace) -> int:
             }
             if unresolved_urls:
                 candidate["unresolved_source_urls"] = list(dict.fromkeys(unresolved_urls))
+            if unresolved_counter_urls:
+                candidate["unresolved_counter_source_urls"] = unresolved_counter_urls
             if isinstance(raw_claim.get("execution_proof"), dict):
                 candidate["execution_proof"] = raw_claim["execution_proof"]
 
@@ -471,10 +514,17 @@ def command_merge(args: argparse.Namespace) -> int:
             for source_id in candidate["source_ids"]:
                 if source_id not in existing["source_ids"]:
                     existing["source_ids"].append(source_id)
+            for source_id in candidate["counter_source_ids"]:
+                if source_id not in existing["counter_source_ids"]:
+                    existing["counter_source_ids"].append(source_id)
             for unresolved_url in candidate.get("unresolved_source_urls", []):
                 existing.setdefault("unresolved_source_urls", [])
                 if unresolved_url not in existing["unresolved_source_urls"]:
                     existing["unresolved_source_urls"].append(unresolved_url)
+            for unresolved_url in candidate.get("unresolved_counter_source_urls", []):
+                existing.setdefault("unresolved_counter_source_urls", [])
+                if unresolved_url not in existing["unresolved_counter_source_urls"]:
+                    existing["unresolved_counter_source_urls"].append(unresolved_url)
             if candidate["risk"] == "high":
                 existing["risk"] = "high"
             if candidate["claim_type"] != existing["claim_type"]:
@@ -573,7 +623,7 @@ def command_merge(args: argparse.Namespace) -> int:
     atomic_write_text(artifacts_dir / "expansion_log.md", "\n".join(expansion_lines).rstrip() + "\n")
 
     state = load_state(session)
-    state["phase"] = max(int(state.get("phase") or 0), 4)
+    state["phase"] = 4
     state["status"] = "merged"
     state["research_axes"] = [result["axis"] for result in returns]
     state["counts"] = {
@@ -584,6 +634,13 @@ def command_merge(args: argparse.Namespace) -> int:
         "dead_ends": dead_end_count,
         "reported_search_calls": total_searches,
     }
+    state["verification"] = {
+        "passed": False,
+        "signature": None,
+        "invalidated_at": utc_now(),
+        "reason": "agent returns merged",
+    }
+    state.pop("evaluation", None)
     save_state(session, state)
 
     report = {
@@ -643,8 +700,17 @@ def _check_source_registry(sources: list[dict[str, Any]]) -> tuple[dict[str, dic
 def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mapping[str, Any]], strict: bool) -> tuple[str, str, bool]:
     source_ids = [source_id for source_id in claim.get("source_ids") or [] if source_id in sources_by_id]
     resolved = [sources_by_id[source_id] for source_id in source_ids]
+    counter_source_ids = [
+        source_id for source_id in claim.get("counter_source_ids") or [] if source_id in sources_by_id
+    ]
+    counter_resolved = [sources_by_id[source_id] for source_id in counter_source_ids]
     families = {source_family_of(source) for source in resolved if source_family_of(source)}
     grades = {str(source.get("quality_rating") or "").upper() for source in resolved}
+    strong_families = {
+        source_family_of(source)
+        for source in resolved
+        if source_family_of(source) and str(source.get("quality_rating") or "").upper() in {"A", "B"}
+    }
     high_risk = claim.get("risk") == "high"
     claim_type = str(claim.get("claim_type") or "descriptive").lower()
     counter_search = str(claim.get("counter_search") or "").strip()
@@ -657,8 +723,9 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
         verdict = str(proof.get("verdict") or "").strip().lower()
         script = str(proof.get("script") or "").strip()
         output = str(proof.get("output") or "").strip()
-        if not verdict or not script or not output:
-            return "unresolved", "execution_proof에 script/output/verdict가 모두 필요", True
+        environment = str(proof.get("env") or "").strip()
+        if not verdict or not script or not output or not environment:
+            return "unresolved", "execution_proof에 script/output/env/verdict가 모두 필요", True
         if verdict == "refuted":
             return "refuted", "실행 증적으로 반박됨", False
         if verdict == "partial":
@@ -670,10 +737,17 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
         return "unresolved", f"알 수 없는 execution verdict: {verdict}", True
 
     if claim.get("counter_refuted"):
-        if not resolved:
-            return "unresolved", "counter_refuted이지만 등록된 반증 출처가 없음", True
         if not counter_search:
             return "unresolved", "counter_refuted이지만 counter_search 기록이 없음", True
+        if not counter_resolved:
+            return "unresolved", "counter_refuted이지만 별도로 등록된 반증 출처가 없음", True
+        if set(source_ids) & set(counter_source_ids):
+            return "unresolved", "반증 출처가 지지 출처와 분리되지 않음", True
+        counter_grades = {str(source.get("quality_rating") or "").upper() for source in counter_resolved}
+        required_counter_grades = {"A", "B"} if strict and high_risk else {"A", "B", "C"}
+        if not (counter_grades & required_counter_grades):
+            threshold = "B등급 이상" if strict and high_risk else "C등급 이상"
+            return "unresolved", f"counter_refuted 반증 출처에 {threshold} 근거가 없음", True
         return "refuted", "counter-search에서 신뢰할 만한 반증이 확인됨", False
 
     if high_risk and not counter_search:
@@ -690,12 +764,29 @@ def _classify_claim(claim: Mapping[str, Any], sources_by_id: Mapping[str, Mappin
         return "unresolved", "high-risk 주장에 B등급 이상 출처 없음", False
     if strict and high_risk and len(families) < 3:
         return "unresolved", f"strict high-risk 주장에 독립 출처 계열 {len(families)}개 < 3", False
+    if strict and high_risk and len(strong_families) < 2:
+        return "unresolved", f"strict high-risk 주장에 A/B 출처 계열 {len(strong_families)}개 < 2", False
     return "verified", "검증 계약 통과", False
 
 
-def _verification_signature(verified: Sequence[Mapping[str, Any]], ledger_path: Path, sources_path: Path) -> str:
+def _verification_signature(
+    verified: Sequence[Mapping[str, Any]],
+    ledger_path: Path,
+    sources_path: Path,
+    *,
+    unresolved: Sequence[Mapping[str, Any]] = (),
+    refuted: Sequence[Mapping[str, Any]] = (),
+    strict: bool = False,
+) -> str:
     digest = hashlib.sha256()
-    digest.update(json.dumps(list(verified), ensure_ascii=False, sort_keys=True).encode("utf-8"))
+    status_outputs = {
+        "checker_version": VERSION,
+        "strict": strict,
+        "verified": list(verified),
+        "unresolved": list(unresolved),
+        "refuted": list(refuted),
+    }
+    digest.update(json.dumps(status_outputs, ensure_ascii=False, sort_keys=True).encode("utf-8"))
     for path in (ledger_path, sources_path):
         if path.exists():
             digest.update(path.read_bytes())
@@ -743,6 +834,15 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
         if unknown:
             hard_errors.append(f"claim {claim_id}: 미등록 source id {unknown}")
             continue
+        if "counter_source_ids" in claim and not isinstance(claim.get("counter_source_ids"), list):
+            hard_errors.append(f"claim {claim_id}: counter_source_ids는 배열이어야 함")
+            continue
+        unknown_counter = [
+            source_id for source_id in claim.get("counter_source_ids") or [] if source_id not in sources_by_id
+        ]
+        if unknown_counter:
+            hard_errors.append(f"claim {claim_id}: 미등록 counter source id {unknown_counter}")
+            continue
         risk = str(claim.get("risk") or "normal").strip().lower()
         if risk not in VALID_RISKS:
             hard_errors.append(f"claim {claim_id}: 잘못된 risk '{risk}'")
@@ -770,6 +870,7 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
         checked_at = utc_now()
         report = {
             "passed": False,
+            "checker_version": VERSION,
             "strict": strict,
             "exit_code": 2,
             "hard_errors": hard_errors,
@@ -785,12 +886,15 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
         atomic_write_json(outputs_dir / "refuted_claims.json", [])
         atomic_write_json(outputs_dir / "verification_report.json", report)
         state["status"] = "verification-hard-error"
+        state["phase"] = 5
+        state.pop("evaluation", None)
         state["verification"] = {
             "passed": False,
             "signature": None,
             "strict": strict,
             "checked_at": checked_at,
             "checker": "researchctl.py",
+            "checker_version": VERSION,
             "hard_error_count": len(hard_errors),
         }
         save_state(session, state)
@@ -804,10 +908,18 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
     atomic_write_json(outputs_dir / "verified_claims.json", verified)
     atomic_write_json(outputs_dir / "unresolved_claims.json", unresolved)
     atomic_write_json(outputs_dir / "refuted_claims.json", refuted)
-    signature = _verification_signature(verified, ledger_path, sources_path)
+    signature = _verification_signature(
+        verified,
+        ledger_path,
+        sources_path,
+        unresolved=unresolved,
+        refuted=refuted,
+        strict=strict,
+    )
     passed = not process_violations
     report = {
         "passed": passed,
+        "checker_version": VERSION,
         "strict": strict,
         "exit_code": 0 if passed else 1,
         "signature": signature,
@@ -821,8 +933,9 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
         "checked_at": utc_now(),
     }
     atomic_write_json(outputs_dir / "verification_report.json", report)
-    state["phase"] = max(int(state.get("phase") or 0), 6)
+    state["phase"] = 6
     state["status"] = "verified" if passed else "verification-action-required"
+    state.pop("evaluation", None)
     state["verification"] = {
         "passed": passed,
         "signature": signature,
@@ -832,6 +945,7 @@ def validate_session(session: Path, strict_override: Optional[bool] = None, quie
         "refuted_count": len(refuted),
         "checked_at": report["checked_at"],
         "checker": "researchctl.py",
+        "checker_version": VERSION,
     }
     save_state(session, state)
     if not quiet:
@@ -884,11 +998,16 @@ def _claim_text_present(claim: Mapping[str, Any], body: str) -> bool:
 
 
 def _verified_claim_present(claim: Mapping[str, Any], body: str) -> bool:
-    if _claim_text_present(claim, body):
-        return True
-    body_ids = set(SOURCE_ID_RE.findall(body))
     source_ids = {str(value) for value in claim.get("source_ids") or []}
-    return bool(source_ids) and source_ids.issubset(body_ids)
+    chunks = [chunk for chunk in re.split(r"\n\s*\n", body) if chunk.strip()]
+    for chunk in chunks:
+        if not _claim_text_present(claim, chunk):
+            continue
+        if not source_ids:
+            return True
+        if source_ids & set(SOURCE_ID_RE.findall(chunk)):
+            return True
+    return False
 
 
 def _strip_annex_sections(markdown: str) -> str:
@@ -919,27 +1038,108 @@ def _strip_annex_sections(markdown: str) -> str:
     return "\n".join(output)
 
 
+def _mark_verification_stale(session: Path, state: dict[str, Any], reason: str) -> None:
+    verification = dict(state.get("verification") or {})
+    verification.update(
+        {
+            "passed": False,
+            "signature": None,
+            "stale": True,
+            "stale_reason": reason,
+            "stale_detected_at": utc_now(),
+        }
+    )
+    state["verification"] = verification
+    state["status"] = "verification-stale"
+    state["phase"] = min(int(state.get("phase") or 6), 6)
+    state.pop("evaluation", None)
+    save_state(session, state)
+
+
 def evaluate_session(session: Path, quiet: bool = False) -> int:
     session = ensure_session(session)
     state = load_state(session)
-    if not bool((state.get("verification") or {}).get("passed")):
+    verification_state = state.get("verification") or {}
+    if not bool(verification_state.get("passed")):
         raise ResearchError(
             "검증 게이트가 통과되지 않았습니다. validate를 성공시킨 뒤 보고서를 평가하세요."
         )
     outputs = session / "outputs"
-    source_rows, source_errors = read_jsonl(session / "sources" / "sources.jsonl")
+    sources_path = session / "sources" / "sources.jsonl"
+    ledger_path = session / "artifacts" / "claim_ledger.jsonl"
+    source_rows, source_errors = read_jsonl(sources_path)
     if source_errors:
-        raise ResearchError("; ".join(source_errors))
+        reason = "; ".join(source_errors)
+        _mark_verification_stale(session, state, reason)
+        raise ResearchError(f"검증된 source registry를 읽을 수 없습니다: {reason}")
     source_ids = {str(row.get("id")) for row in source_rows if row.get("id")}
-    verified = read_json(outputs / "verified_claims.json") if (outputs / "verified_claims.json").exists() else []
-    unresolved = read_json(outputs / "unresolved_claims.json") if (outputs / "unresolved_claims.json").exists() else []
-    refuted = read_json(outputs / "refuted_claims.json") if (outputs / "refuted_claims.json").exists() else []
+    try:
+        verified = read_json(outputs / "verified_claims.json") if (outputs / "verified_claims.json").exists() else []
+        unresolved = read_json(outputs / "unresolved_claims.json") if (outputs / "unresolved_claims.json").exists() else []
+        refuted = read_json(outputs / "refuted_claims.json") if (outputs / "refuted_claims.json").exists() else []
+    except ResearchError as exc:
+        _mark_verification_stale(session, state, str(exc))
+        raise ResearchError(f"검증 상태 산출물을 읽을 수 없습니다: {exc}") from exc
+    if not isinstance(verified, list) or not isinstance(unresolved, list) or not isinstance(refuted, list):
+        _mark_verification_stale(session, state, "검증 상태 산출물이 JSON 배열이 아님")
+        raise ResearchError("검증 산출물은 JSON 배열이어야 합니다. validate를 다시 실행하세요.")
+    expected_signature = str(verification_state.get("signature") or "")
+    current_signature = _verification_signature(
+        verified,
+        ledger_path,
+        sources_path,
+        unresolved=unresolved,
+        refuted=refuted,
+        strict=bool(verification_state.get("strict")),
+    )
+    if not expected_signature or expected_signature != current_signature:
+        _mark_verification_stale(session, state, "검증 입력 또는 상태 산출물의 서명 불일치")
+        raise ResearchError(
+            "검증 이후 source registry, claim ledger 또는 검증 상태 산출물이 변경되었습니다. "
+            "validate를 다시 실행하세요."
+        )
+    verification_report_path = outputs / "verification_report.json"
+    try:
+        verification_report = read_json(verification_report_path)
+    except ResearchError as exc:
+        _mark_verification_stale(session, state, str(exc))
+        raise ResearchError(f"verification report를 읽을 수 없습니다: {exc}") from exc
+    expected_counts = {
+        "verified": len(verified),
+        "unresolved": len(unresolved),
+        "refuted": len(refuted),
+    }
+    report_is_consistent = (
+        isinstance(verification_report, dict)
+        and bool(verification_report.get("passed"))
+        and verification_report.get("exit_code") == 0
+        and str(verification_report.get("checker_version") or "") == VERSION
+        and str(verification_report.get("signature") or "") == expected_signature
+        and bool(verification_report.get("strict")) == bool(verification_state.get("strict"))
+        and verification_report.get("counts") == expected_counts
+        and verification_report.get("hard_errors") == []
+        and verification_report.get("process_violations") == []
+        and str(verification_report.get("checked_at") or "")
+        == str(verification_state.get("checked_at") or "")
+        and str(verification_state.get("checker_version") or "") == VERSION
+        and verification_state.get("verified_count") == len(verified)
+        and verification_state.get("unresolved_count") == len(unresolved)
+        and verification_state.get("refuted_count") == len(refuted)
+    )
+    if not report_is_consistent:
+        _mark_verification_stale(session, state, "state와 verification_report 또는 검증 산출물 불일치")
+        raise ResearchError(
+            "state, verification_report와 검증 산출물이 일치하지 않습니다. validate를 다시 실행하세요."
+        )
     report_paths = sorted(
         path
         for path in outputs.glob("*.md")
         if path.name not in {"bibliography.md", "quality_report.md"}
     )
-    report_text = "\n\n".join(path.read_text(encoding="utf-8") for path in report_paths)
+    try:
+        report_text = "\n\n".join(path.read_text(encoding="utf-8") for path in report_paths)
+    except (OSError, UnicodeError) as exc:
+        raise ResearchError(f"보고서 Markdown 읽기 실패: {exc}") from exc
     main_body = _strip_annex_sections(report_text)
     cited_ids = set(SOURCE_ID_RE.findall(report_text))
     dangling = sorted(cited_ids - source_ids)
@@ -955,6 +1155,9 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
                 }
             )
     covered_verified = [str(claim.get("claim_id")) for claim in verified if _verified_claim_present(claim, main_body)]
+    uncovered_verified = [
+        str(claim.get("claim_id")) for claim in verified if str(claim.get("claim_id")) not in covered_verified
+    ]
     citation_resolution_rate = 1.0 if not cited_ids else (len(cited_ids) - len(dangling)) / len(cited_ids)
     orphan_source_rate = 0.0 if not source_ids else len(orphan_sources) / len(source_ids)
     verified_coverage_rate = 1.0 if not verified else len(covered_verified) / len(verified)
@@ -990,6 +1193,7 @@ def evaluate_session(session: Path, quiet: bool = False) -> int:
         },
         "dangling_citations": dangling,
         "orphan_sources": orphan_sources,
+        "uncovered_verified_claims": uncovered_verified,
         "leaks": leaks,
         "failures": failures,
     }
@@ -1113,7 +1317,20 @@ def command_schema(args: argparse.Namespace) -> int:
                 "published_at": "YYYY-MM-DD",
                 "valid_at": "YYYY-MM-DD",
                 "notes": "What this source supports and limitations",
-            }
+            },
+            {
+                "url": "https://counter.example.com/correction",
+                "title": "Credible contrary evidence",
+                "domain": "counter.example.com",
+                "source_family": "counter.example.com",
+                "publisher": "Independent verifier",
+                "source_type": "official|paper|news|dataset|technical|other",
+                "quality_rating": "A|B|C",
+                "primary": False,
+                "published_at": "YYYY-MM-DD",
+                "valid_at": "YYYY-MM-DD",
+                "notes": "Use only in counter_source_urls when it defeats the claim",
+            },
         ],
         "claims": [
             {
@@ -1121,6 +1338,7 @@ def command_schema(args: argparse.Namespace) -> int:
                 "risk": "normal|high",
                 "claim_type": "numeric|legal|causal|financial|descriptive|executable",
                 "source_urls": ["https://example.org/source", "https://independent.example.net/source"],
+                "counter_source_urls": ["https://counter.example.com/correction"],
                 "counter_search": "Required for high-risk non-executable claims",
                 "counter_refuted": False,
                 "conflicting": False,

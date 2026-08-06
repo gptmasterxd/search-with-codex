@@ -36,6 +36,7 @@ Return one JSON object and no surrounding prose. The parent Codex will combine s
         "https://example.org/document",
         "https://independent.example.net/data"
       ],
+      "counter_source_urls": [],
       "counter_search": "Describe the counter-query and what was or was not found",
       "counter_refuted": false,
       "conflicting": false,
@@ -64,7 +65,9 @@ Return one JSON object and no surrounding prose. The parent Codex will combine s
 
 - Keep each claim atomic. Split a sentence containing two independently falsifiable statements.
 - Use `risk: high` for numbers, dates, current status, law, regulation, finance, medicine, safety, causal language, material identity, or deadlines.
-- Use `counter_refuted: true` only when credible contrary evidence defeats the claim.
+- Keep evidence supporting the claim in `source_urls`.
+- Put sources that directly contradict and defeat the claim in `counter_source_urls`. Do not place the same source in both lists.
+- Use `counter_refuted: true` only when credible contrary evidence defeats the claim and `counter_source_urls` identifies that evidence. Standard mode requires A/B/C counter-evidence; strict high-risk mode requires A/B counter-evidence.
 - Use `conflicting: true` when credible sources disagree and the conflict remains unresolved.
 - `primary_source: true` means at least one linked source is the authoritative origin for that claim.
 - For an executable claim, add:

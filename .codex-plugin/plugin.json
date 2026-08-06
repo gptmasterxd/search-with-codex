@@ -1,6 +1,6 @@
 {
   "name": "insane-research-codex",
-  "version": "3.0.0-codex.1",
+  "version": "3.1.0",
   "description": "Codex-native multi-agent deep research with source triangulation, deterministic claim verification, and audited reports",
   "skills": "./skills/"
 }
