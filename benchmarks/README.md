@@ -49,6 +49,8 @@ Each run stores:
 The judge randomizes A/B labels per evaluation and emits structured blind
 scores for correctness, completeness, evidence quality, uncertainty handling,
 decision usefulness, and overall quality on one consistent 1-to-5 scale.
+It may use at most four live search/discovery calls to spot-check decisive
+current or disputed claims from both outputs under the same standard.
 `report` unblinds only after judging and creates
 `benchmark.json` plus `benchmark.md`.
 

@@ -55,6 +55,7 @@ JUDGE_DIMENSIONS = (
     "uncertainty_handling",
     "decision_usefulness",
 )
+JUDGE_MAX_SEARCH_CALLS = 4
 NONFATAL_DIAGNOSTICS = (
     "Skill descriptions were shortened to fit the 2% skills context budget.",
 )
@@ -886,7 +887,10 @@ Score every dimension and `overall` on the same scale:
 The overall score must be a holistic 1-to-5 quality score consistent with the dimension scores.
 Do not award points merely for being longer or for claiming that an audit passed. Treat the
 deterministic summaries as secondary evidence. If a citation cannot be checked from the supplied
-material, do not assume it is valid. Be decisive, but use TIE when genuinely equivalent.
+material, use live web search to spot-check decisive disputed or time-sensitive claims from both
+outputs under the same standard. Prefer official primary sources and use no more than
+{JUDGE_MAX_SEARCH_CALLS} search/discovery calls total. Be decisive, but use TIE when genuinely
+equivalent.
 
 ORIGINAL TASK
 {eval_case['prompt']}
@@ -961,7 +965,7 @@ def judge_one(
         model=model,
         project=project,
         sandbox="read-only",
-        search=False,
+        search=True,
         disabled_plugins=disabled_plugins,
         disabled_skills=disabled_skills,
     )
@@ -1190,6 +1194,8 @@ def aggregate_benchmark(args: argparse.Namespace) -> Path:
             "skill_path": str(ROOT / "skills" / "insane-research"),
             "executor_model": metadata.get("model"),
             "analyzer_model": args.judge_model or metadata.get("model"),
+            "analyzer_web_search": True,
+            "analyzer_search_call_limit": JUDGE_MAX_SEARCH_CALLS,
             "timestamp": utc_now(),
             "repo_commit": metadata.get("repo_commit"),
             "analyzer_repo_commit": git_commit(ROOT),
