@@ -2,6 +2,8 @@
 
 Return one JSON object and no surrounding prose. The parent Codex will combine several objects and write `artifacts/agent_returns.json`.
 
+Use the canonical field names exactly. In particular, do not rename `quality_rating` to `quality`, `text` to `claim`, flatten `access`, or return `expand_leads` as strings. Before returning, self-check the top-level, source, claim, and expansion-lead keys against the example below.
+
 ```json
 {
   "axis": "official-current-state",
@@ -90,3 +92,26 @@ Different domains are not always independent. Use a shared `source_family` when 
 - articles based entirely on one press release;
 - dashboards and summaries derived from the same dataset;
 - mirrors of one repository or document.
+
+The inverse is also possible: separate documents on one hosting domain can belong to different evidence families, such as unrelated journal articles or independently authored repository artifacts. Assign `source_family` from the underlying evidence lineage, not from the hostname alone. Quality grades are also source- and claim-specific. Two documents on one domain may legitimately have different grades. When agents return the same normalized URL more than once, the merger reconciles only that identical source conservatively.
+
+## Search accounting
+
+- `search_count` is the number of actual search or discovery tool invocations.
+- One batched call containing several query objects counts as one call.
+- Search hits, snippets, opened pages, document reads, and downloads do not increment `search_count`.
+- `queries_run` contains every query string submitted, including strings grouped into a batch.
+
+## Deterministic compatibility normalization
+
+The merger can preserve an otherwise valid completed return when a model emits one of these observed legacy aliases:
+
+- `quality` → `quality_rating`
+- `accessed_at` → `observed_at`
+- `key_points` → `notes` when `notes` is absent
+- `access_method` / `access_status` → `access.method` / `access.status`
+- `claim` → `text`
+- boolean `causal` → `claim_type`
+- a non-empty string in `expand_leads` → an object with that string as `lead`
+
+These transformations are recorded in `artifacts/merge_report.json` under `normalizations`. They do not invent missing evidence, rationale, URLs, or claim support. Unsupported or lossy shapes remain warnings and must be corrected.

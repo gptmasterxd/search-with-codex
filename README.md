@@ -23,6 +23,9 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Executable proof requires command, output, environment/version metadata, and verdict.
 - Report coverage counts a verified claim only when the claim itself and an adjacent supporting source marker appear together.
 - Source URL normalization accepts only HTTP(S), rejects embedded credentials, and safely preserves IPv6 hosts.
+- Quality grades and evidence families stay source-specific; only duplicate normalized URLs are reconciled conservatively, and harmless `www.` host aliases do not create false mismatches.
+- Named custom agents use self-contained no-history prompts, inspect active tool schemas, and follow bounded search-tool-call budgets with explicit stop conditions.
+- Session initialization exposes a workspace-preserving edit path so macOS `/tmp` projects are not rewritten to an out-of-workspace `/private/tmp` alias.
 - Release metadata is generated and checked for both hash mismatches and unlisted distributable files.
 - GitHub Actions runs the standard-library test and integrity suite across Python 3.9, 3.11, and 3.14.
 
@@ -59,6 +62,8 @@ $insane-research Research the impact of AI coding agents on software productivit
 ```
 
 The skill can also be selected implicitly for requests that clearly ask for deep or comprehensive research.
+
+In a Codex installation with enough skills to trigger a skill-description context-budget warning, explicit `$insane-research` invocation is the reliable entry point.
 
 ## Runtime workflow
 

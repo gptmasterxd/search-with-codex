@@ -10,10 +10,14 @@
 ## Retrieval
 
 - [ ] Each subagent owns one axis and returns structured JSON only.
+- [ ] Named custom roles use self-contained prompts without a full-history fork.
+- [ ] Active tool schemas were inspected; structured search arguments were not guessed.
+- [ ] Per-axis search-tool budgets and the no-new-evidence stop condition are recorded.
 - [ ] High-risk claims have counter-searches.
 - [ ] Defeated claims identify separate `counter_source_urls`; supporting and counter-evidence are not conflated.
 - [ ] Primary-source attempts are documented.
 - [ ] Search dates and content validity dates are distinct.
+- [ ] `search_count` counts tool invocations, while `queries_run` lists submitted query strings.
 - [ ] Source families identify duplicated underlying evidence.
 - [ ] Dead ends and access limits are recorded.
 

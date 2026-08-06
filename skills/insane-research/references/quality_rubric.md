@@ -32,9 +32,11 @@ Grades measure evidentiary fitness for the specific claim, not prestige alone.
 
 - anonymous forum, social-media post, unsourced list, anecdote, generated summary, or speculation.
 
-## Domain consistency
+## Source-specific consistency
 
-Within one research session, sources from the same domain receive one normalized grade. The merger uses the modal grade and selects the more conservative grade on ties. This prevents parallel agents from assigning contradictory strength to the same publisher.
+Grade the exact document for the exact claim. A domain can host a systematic review, an editorial, and a press release with legitimately different evidentiary grades. Do not normalize all documents on one hostname to one grade.
+
+When multiple agents return the same normalized URL with different grades, the merger selects the modal grade and the more conservative grade on ties. This reconciles contradictory assessments of one source without flattening unrelated documents from the same host.
 
 ## Claim-specific cautions
 

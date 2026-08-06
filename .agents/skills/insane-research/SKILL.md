@@ -1,6 +1,6 @@
 ---
 name: insane-research
-description: Conduct deep, multi-source research with Codex subagents, source triangulation, high-risk claim verification, resumable sessions, and an audited report. Use for deep research, literature reviews, market or technical investigations, due diligence, current-policy research, and requests such as 딥리서치, 심층 조사, 논문 포함 조사, or research this thoroughly.
+description: Run comprehensive multi-source research with Codex subagents, strict high-risk verification, resumable sessions, citations, and audited reports. Use for deep research, literature reviews, due diligence, and requests such as 딥리서치 or 심층 조사.
 ---
 
 # Insane Research for Codex
@@ -65,6 +65,8 @@ python3 "$CTL" init \
 
 Use `--mode strict` when strict mode applies. Capture the session path printed by the command.
 
+The controller also exposes a workspace-preserving path as `workspace_session` in JSON output and as `작업 경로` in text output. Use that path for repository file-edit tools. In particular, do not replace a workspace-visible `/tmp/...` path with its macOS `/private/tmp/...` canonical alias. The canonical `session` path remains safe for CLI arguments.
+
 ## Phase 2 — Build a retrieval plan
 
 Edit `<session>/artifacts/research_plan.md` before searching. Break the question into 3–5 independent axes. A good plan separates evidence types rather than assigning several agents the same broad query.
@@ -83,7 +85,7 @@ For each axis, define:
 - preferred source types;
 - relevant date range and language;
 - likely failure modes;
-- 6–12 meaningfully different queries, not trivial paraphrases.
+- 6–10 meaningfully different query strings, not trivial paraphrases.
 
 Include the current date in freshness-sensitive searches. For historical research, preserve the historical cutoff and do not overwrite it with current material.
 
@@ -98,6 +100,10 @@ Use Codex subagents for independent, read-heavy research axes. Prefer the bundle
 
 Run no more than four research subagents concurrently unless the environment has a lower configured limit. Keep the parent focused on orchestration and source-family deduplication. Do not assign overlapping write tasks.
 
+When selecting a named custom role, do not combine `agent_type` with a full-history fork. Spawn it without inherited conversation history (`fork_turns: "none"` when that field exists) and provide a self-contained prompt containing the topic, mode, axis, date, evidence requirements, search budget, and return contract. Inspect the active spawn-tool schema rather than assuming field names.
+
+Use a default discovery budget of at most 10 search-tool calls per axis in standard mode and 14 in strict mode. One search-tool call may contain several independent query objects when the active schema supports batching. The parent may grant up to four additional calls only for a named unresolved high-risk claim and a concrete new evidence route. Page opens, document reads, search results, and query strings inside one batch are not additional search-tool calls.
+
 Each subagent must:
 
 1. stay within one axis;
@@ -109,11 +115,16 @@ Each subagent must:
 7. keep supporting evidence in `source_urls` and contrary evidence in `counter_source_urls`; never reuse a supporting source as the sole proof of refutation;
 8. return exactly one JSON object matching `references/agent_return_schema.md`;
 9. include all queries actually run and any dead ends;
-10. never write to the shared research session.
+10. inspect each active tool's schema and pass the documented structured arguments rather than guessing a raw-string call;
+11. count `search_count` as actual search or discovery tool invocations, not result items, opened pages, or individual query objects inside one batched call;
+12. stop the axis when two consecutive search calls through meaningfully different routes add no usable source, independent family, or material contradiction;
+13. never write to the shared research session.
 
 A subagent prompt should include this completion condition:
 
-> Continue until the assigned axis has been answered, the best reachable primary sources have been checked, material contradictions are recorded, and remaining gaps are explicit. Return only the agreed JSON object; do not modify files.
+> Continue until the assigned axis has been answered, the best reachable primary sources have been checked, material contradictions are recorded, and remaining gaps are explicit, or the supplied discovery budget or no-new-evidence stop condition is reached. Return only the agreed JSON object; do not modify files.
+
+While subagents are active, wait for their returns instead of duplicating their assigned searches in the parent. After an interruption, resume the existing session, retain every completed axis return, and rerun only work that did not return a valid object.
 
 ### Internet or tool unavailability
 
@@ -158,6 +169,8 @@ Review:
 - `artifacts/merge_report.json`
 - `artifacts/query_log.md`
 - `artifacts/expansion_log.md`
+
+Write returned agent objects to `agent_returns.json` without manually rewriting substantive evidence. The merger records narrow, lossless compatibility aliases under `normalizations`; these do not require a new search. If a return is missing evidence or has an unsupported shape that would lose meaning, ask that same agent for one formatting-only retry with no new search.
 
 Resolve meaningful merge warnings. A warning about an unregistered supporting or counter-evidence URL means the source must be added and the merge rerun, or the claim must remain unsupported and unresolved.
 

@@ -20,6 +20,8 @@ The skill does not assume a particular search vendor. Use the best tools actuall
 
 Never claim a tool was used when it was unavailable. Do not substitute invented metadata for an inaccessible source.
 
+Before the first call to a search, browser, repository, academic, or MCP tool, inspect its active schema. Some tools require an object such as a `search_query` array rather than a free-form query string. Pass exactly the documented structure and omit unsupported fields.
+
 ## Query craft
 
 Vary both the wording and the retrieval surface:
@@ -32,6 +34,10 @@ Vary both the wording and the retrieval surface:
 - explicit counter-queries such as criticism, limitation, correction, retraction, audit, lawsuit, or failure.
 
 Do not spend the budget on superficial paraphrases. Log the queries actually run.
+
+Batch independent query objects in one tool call when the schema supports it. Unless the parent supplies a smaller limit, use at most 10 search-tool calls for a standard axis or 14 for a strict axis. The parent may authorize up to four additional calls only for a named unresolved high-risk claim and a concrete new route. Stop after two consecutive calls through meaningfully different routes add no usable source, independent source family, or material contradiction.
+
+`search_count` means the number of actual search or discovery tool invocations. A batched call counts once. Do not count returned hits, snippets, opened pages, downloaded documents, or individual query objects inside a batch as separate calls. `queries_run` still lists every query string actually submitted.
 
 ## Access failures
 
