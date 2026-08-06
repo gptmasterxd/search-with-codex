@@ -471,6 +471,19 @@ class ResearchCtlTests(unittest.TestCase):
             self.assertTrue(state["verification"]["passed"])
             self.assertEqual(len(state["verification"]["signature"]), 64)
 
+            brief_result = run_ctl("brief", "--session", str(session))
+            self.assertEqual(brief_result.returncode, 0, brief_result.stderr)
+            brief = json.loads(brief_result.stdout)
+            self.assertEqual(len(brief["sources"]), 2)
+            self.assertEqual(len(brief["verified_claims"]), 1)
+            self.assertEqual(brief["unresolved_claims"], [])
+            self.assertEqual(brief["refuted_claims"], [])
+            self.assertEqual(
+                brief["verified_claims"][0]["source_ids"],
+                ["src_001", "src_002"],
+            )
+            self.assertNotIn("notes", brief["sources"][0])
+
     def test_missing_counter_search_is_exit_one(self):
         with tempfile.TemporaryDirectory() as temp:
             session = self.make_session(Path(temp))

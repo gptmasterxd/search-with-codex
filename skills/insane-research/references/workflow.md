@@ -29,6 +29,7 @@
 - [ ] `merge` completed and warnings were reviewed.
 - [ ] Source registry and claim ledger are readable.
 - [ ] `validate` exited 0.
+- [ ] `brief` was read once instead of replaying complete registry and status files.
 - [ ] Evidence was not edited after validation; if it was, `validate` was rerun.
 - [ ] Report body uses verified high-risk claims only.
 
@@ -39,5 +40,6 @@
 - [ ] Every used source marker is a Markdown link to its registered canonical URL.
 - [ ] Each used verified claim has an adjacent supporting source marker.
 - [ ] Unresolved and refuted claims have dedicated annexes.
+- [ ] Unresolved/refuted wording and IDs do not appear outside their dedicated annexes.
 - [ ] `finalize` exited 0 and `eval_report.json` says PASS.
 - [ ] Material access limitations are disclosed to the user.

@@ -1129,6 +1129,63 @@ def command_validate(args: argparse.Namespace) -> int:
     return code
 
 
+def _brief_claim(claim: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: claim.get(key)
+        for key in (
+            "claim_id",
+            "text",
+            "source_ids",
+            "counter_source_ids",
+            "valid_at",
+            "status",
+            "status_reason",
+        )
+        if claim.get(key) not in (None, "", [])
+    }
+
+
+def command_brief(args: argparse.Namespace) -> int:
+    """Print the compact evidence map needed for report synthesis."""
+    session = ensure_session(Path(args.session))
+    sources, source_errors = read_jsonl(session / "sources" / "sources.jsonl")
+    if source_errors:
+        raise ResearchError("; ".join(source_errors))
+    outputs = session / "outputs"
+    claim_groups: dict[str, list[dict[str, Any]]] = {}
+    for name in ("verified", "unresolved", "refuted"):
+        path = outputs / f"{name}_claims.json"
+        values = read_json(path)
+        if not isinstance(values, list):
+            raise ResearchError(f"{path.name}은 JSON 배열이어야 합니다.")
+        claim_groups[f"{name}_claims"] = [
+            _brief_claim(value)
+            for value in values
+            if isinstance(value, dict)
+        ]
+    brief = {
+        "session": str(session),
+        "sources": [
+            {
+                key: source.get(key)
+                for key in (
+                    "id",
+                    "title",
+                    "url",
+                    "publisher",
+                    "quality_rating",
+                    "source_family",
+                )
+                if source.get(key) not in (None, "")
+            }
+            for source in sources
+        ],
+        **claim_groups,
+    }
+    print(json.dumps(brief, ensure_ascii=False, indent=2))
+    return 0
+
+
 def _normalize_for_match(text: str) -> str:
     return re.sub(r"[^0-9a-z가-힣]+", "", unicodedata.normalize("NFKC", text).lower())
 
@@ -1577,6 +1634,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("--strict", action="store_true")
     validate_parser.add_argument("--json", action="store_true")
     validate_parser.set_defaults(func=command_validate)
+
+    brief_parser = subparsers.add_parser(
+        "brief",
+        help="Print a compact source and verified/unresolved/refuted claim map for synthesis",
+    )
+    brief_parser.add_argument("--session", required=True)
+    brief_parser.set_defaults(func=command_brief)
 
     eval_parser = subparsers.add_parser("eval", help="Audit final Markdown reports")
     eval_parser.add_argument("--session", required=True)

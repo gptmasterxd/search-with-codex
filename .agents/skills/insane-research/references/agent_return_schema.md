@@ -66,6 +66,7 @@ Use the canonical field names exactly. In particular, do not rename `quality_rat
 ## Claim rules
 
 - Keep each claim atomic. Split a sentence containing two independently falsifiable statements.
+- `claim_type` must be exactly one of `numeric`, `legal`, `causal`, `financial`, `descriptive`, or `executable`.
 - Use `risk: high` for numbers, dates, current status, law, regulation, finance, medicine, safety, causal language, material identity, or deadlines.
 - Keep evidence supporting the claim in `source_urls`.
 - Put sources that directly contradict and defeat the claim in `counter_source_urls`. Do not place the same source in both lists.

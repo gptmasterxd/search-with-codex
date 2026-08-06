@@ -127,7 +127,7 @@ A subagent prompt should include this completion condition:
 
 > Continue until the assigned axis has been answered, the best reachable primary sources have been checked, material contradictions are recorded, and remaining gaps are explicit, or the supplied discovery budget or no-new-evidence stop condition is reached. Return only the agreed JSON object; do not modify files.
 
-While subagents are active, wait for their returns instead of duplicating their assigned searches in the parent. Inspect the active wait-tool schema and use a supported timeout; when `timeout_ms` exists, use at least `10000` and normally `30000`. If a spawn fails before creating a thread, inspect the live agent list and active spawn schema, then retry that axis once. Do not loop on the same failed call.
+While subagents are active, wait for their returns instead of duplicating their assigned searches in the parent. Inspect the active wait-tool schema and use a supported timeout; when `timeout_ms` exists, use at least `10000` and normally `60000` to avoid repeated no-change turns. If a spawn fails before creating a thread, inspect the live agent list and active spawn schema, then retry that axis once. Do not loop on the same failed call.
 
 Save each valid return to its own file immediately after receiving it, before waiting on other axes. After an interruption, resume the existing session, retain every completed axis return already saved under `artifacts/agent_returns/`, and rerun only work that did not return a valid object.
 
@@ -169,7 +169,7 @@ Do not hand-edit source IDs or claim IDs. Run:
 python3 "$CTL" merge --session "<session>"
 ```
 
-Review `artifacts/merge_report.json` and `researchctl status` first. Inspect the registry or ledger with targeted queries only when a warning, claim, or source needs attention; do not print every generated file back into the parent context by default.
+Run merge with `--json` and review its returned warnings directly. Use `researchctl status` only when resuming or locating a session. Inspect the registry or ledger with targeted queries only when a warning, claim, or source needs attention; do not print every generated file back into the parent context by default.
 
 Generated artifacts include:
 
@@ -205,6 +205,14 @@ The gate writes:
 - `outputs/unresolved_claims.json`
 - `outputs/refuted_claims.json`
 - `outputs/verification_report.json`
+
+After a successful gate, load the synthesis inputs once:
+
+```bash
+python3 "$CTL" brief --session "<session>"
+```
+
+Use this compact ID/title/URL/claim map with the subagent returns already in context. Do not separately print the complete source registry, verified/unresolved/refuted files, or report templates unless a specific missing field requires it.
 
 Only a verified high-risk claim may appear as an unqualified assertion in the report body. Unresolved and refuted claims belong in clearly labeled annex sections and may not be reframed as verified.
 
@@ -248,6 +256,8 @@ Required full-report sections:
 In the evidence table, include claim ID, conclusion, supporting source IDs, validity date, and status. Keep inference separate from sourced fact. Label inference explicitly.
 
 Keep the report decision-focused. Internal ledger counts, phase numbers, and statements that the workflow verified itself are not substantive evidence; mention process only when it explains a limitation or confidence judgment.
+
+Do not repeat an unresolved or refuted claim's wording or claim ID outside its dedicated annex heading. In an executive summary, describe only the practical evidence gap in different, qualified language; the audit deliberately detects close paraphrases in assertive sections.
 
 ## Phase 7 — Audit and finalize
 

@@ -7,6 +7,7 @@
 - User-visible citation URL coverage metric and hard final-audit gate.
 - Per-agent return directory with deterministic merge order and path-specific errors.
 - Current-primary freshness sweeps for medical, legal, regulatory, standards, and fast-moving technical topics.
+- Compact `brief` synthesis output to avoid replaying complete registries and status files into model context.
 - Reviewed real-Codex benchmark harness and sanitized v3.1 baseline results.
 - Validated Codex plugin author and interface metadata.
 
@@ -23,6 +24,7 @@
 - Removed concurrent patch contention on one shared `agent_returns.json`.
 - Documented supported wait timeouts and bounded recovery from pre-thread spawn failures.
 - Required the research-plan template to be read before patching.
+- Enumerated valid claim types and clarified unresolved-claim placement to prevent avoidable merge warnings and audit retries.
 
 ## 3.1.0 — 2026-08-06
 

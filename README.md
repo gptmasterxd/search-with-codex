@@ -21,7 +21,7 @@ A Codex-native derivative of `fivetaku/insane-research` 2.8.2. It ports the upst
 - Parallel results are saved as isolated `artifacts/agent_returns/*.json` files, removing the shared aggregate-file patch conflict while retaining legacy-session support.
 - Current medical, legal, regulatory, standards, and fast-moving technical work includes a direct-primary freshness sweep over the cutoff date and preceding 24 months.
 - Standard mode starts with 2–3 axes and at most three research agents; strict mode starts with 3–4 axes and at most four. Per-axis search and return budgets are bounded.
-- Merge review starts from compact status and warning outputs instead of replaying the complete registry and ledger into model context.
+- Merge review starts from compact warning output, and `researchctl brief` supplies one synthesis map instead of replaying the complete registry and ledger into model context.
 - The plugin manifest now follows the validated Codex author and interface schema.
 
 These changes address the reviewed [v3.1.0 versus base Codex benchmark](benchmarks/results/v3.1.0-vs-base.md), where v3.1 retained strong strict-mode currentness but used 4.69× the tokens of base Codex, exposed no usable links in one report, and missed a recent direct medical trial.
