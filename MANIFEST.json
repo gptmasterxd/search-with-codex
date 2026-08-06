@@ -1,7 +1,7 @@
 {
   "name": "insane-research-codex",
   "version": "3.2.0",
-  "generated_at": "2026-08-06T22:26:34Z",
+  "generated_at": "2026-08-06T22:29:07Z",
   "upstream": {
     "repository": "fivetaku/insane-research",
     "version": "2.8.2",
@@ -9,7 +9,7 @@
     "license": "MIT"
   },
   "file_count_excluding_manifest_and_checksums": 61,
-  "total_bytes_excluding_manifest_and_checksums": 521669,
+  "total_bytes_excluding_manifest_and_checksums": 523886,
   "files": [
     {
       "path": ".agents/skills/insane-research/SKILL.md",
@@ -158,8 +158,8 @@
     },
     {
       "path": "VALIDATION_REPORT.md",
-      "bytes": 2646,
-      "sha256": "12fe2fbcdeae0008e920cbf472657c5354ff8f0bbc6dfd740d764bb4f2c2fc56"
+      "bytes": 4863,
+      "sha256": "a152e61c9ed3c32af33481dae44bf5c970031e696bb9c7a3b38fb4c918c8a7a7"
     },
     {
       "path": "benchmarks/README.md",
