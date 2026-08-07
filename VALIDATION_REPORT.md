@@ -9,6 +9,13 @@
 **Release verdict:** **PENDING** — one final benchmark arm is waiting for the
 Codex account usage-limit reset. This is not yet a public-release PASS.
 
+> Post-review hardening note: the report-audit and benchmark-contract fixes in
+> the review hardening branch change the candidate skill tree after the model
+> runs recorded below. Those runs remain valid evidence for the named historical
+> tree, but they do not validate the hardened tree. Re-run deterministic checks,
+> all six benchmark arms, and all three blind judgments before changing this
+> verdict or merging the hardening into the v3.2 release candidate.
+
 ## Deterministic and package checks
 
 - Python compilation: **PASS**
