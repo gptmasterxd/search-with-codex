@@ -1,4 +1,5 @@
 name: Apply v3.2 review hardening
+# retry: 2 — corrected the v3.2-only changelog insertion target
 
 on:
   push:
