@@ -1,4 +1,5 @@
 name: Apply v3.2 review follow-up
+# retry: 2 — aligned with the validated hardening changelog text
 
 on:
   push:
@@ -26,12 +27,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          test "$(wc -c < .review-hardening/followup.py.gz.b64)" -eq 3096
-          echo "eda8f4880261c3b4d3898cad48ebc76ac398c5ed5b515c01aaf64e80e019ddb1  .review-hardening/followup.py.gz.b64" | sha256sum -c -
+          test "$(wc -c < .review-hardening/followup.py.gz.b64)" -eq 3120
+          echo "e9566fcf9379b8bda0295ecaef6fe121359e99a64a6402e929c07b1426e3815b  .review-hardening/followup.py.gz.b64" | sha256sum -c -
           base64 --decode .review-hardening/followup.py.gz.b64 > /tmp/followup.py.gz
-          echo "4621e923d35ba56ab6dcaf86ace77993e31647bd0eb8f55eeb1cc08dc68f7834  /tmp/followup.py.gz" | sha256sum -c -
+          echo "2deb1b717560c3e9284e962b92f15dbcb4fd7b70b74f638401cea23b06933c8c  /tmp/followup.py.gz" | sha256sum -c -
           gzip -dc /tmp/followup.py.gz > .review-hardening/followup.py
-          echo "f62aaa3601431a4de4f67975904e3c065048a7b82b8ed3beb4ccc1028794877a  .review-hardening/followup.py" | sha256sum -c -
+          echo "0f76900a39590d9e725b7f56fdda4667f285ca69935d1bbb4c5757d81c31a51e  .review-hardening/followup.py" | sha256sum -c -
           python3 .review-hardening/followup.py
           rm -rf .review-hardening
 
