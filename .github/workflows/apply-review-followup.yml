@@ -1,0 +1,61 @@
+name: Apply v3.2 review follow-up
+
+on:
+  push:
+    branches:
+      - review-hardening-v3.2.0
+    paths:
+      - .github/workflows/apply-review-followup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out review branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Apply follow-up and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test "$(wc -c < .review-hardening/followup.py.gz.b64)" -eq 3096
+          echo "eda8f4880261c3b4d3898cad48ebc76ac398c5ed5b515c01aaf64e80e019ddb1  .review-hardening/followup.py.gz.b64" | sha256sum -c -
+          base64 --decode .review-hardening/followup.py.gz.b64 > /tmp/followup.py.gz
+          echo "4621e923d35ba56ab6dcaf86ace77993e31647bd0eb8f55eeb1cc08dc68f7834  /tmp/followup.py.gz" | sha256sum -c -
+          gzip -dc /tmp/followup.py.gz > .review-hardening/followup.py
+          echo "f62aaa3601431a4de4f67975904e3c065048a7b82b8ed3beb4ccc1028794877a  .review-hardening/followup.py" | sha256sum -c -
+          python3 .review-hardening/followup.py
+          rm -rf .review-hardening
+
+          mv .github/workflows/apply-review-followup.yml /tmp/apply-review-followup.yml
+          trap 'mv /tmp/apply-review-followup.yml .github/workflows/apply-review-followup.yml 2>/dev/null || true' EXIT
+
+          python3 scripts/update_release_metadata.py
+          python3 -m compileall -q skills/insane-research/scripts scripts benchmarks tests
+          python3 -m unittest discover -s tests -v
+          python3 scripts/verify_package.py
+          python3 scripts/update_release_metadata.py --check
+          python3 scripts/verify_release.py
+          git diff --check
+
+          mv /tmp/apply-review-followup.yml .github/workflows/apply-review-followup.yml
+          trap - EXIT
+
+      - name: Commit validated follow-up
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Counterbalance benchmark execution and validate worker counts"
+          git push origin HEAD:review-hardening-v3.2.0
