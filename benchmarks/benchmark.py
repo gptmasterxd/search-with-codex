@@ -56,6 +56,11 @@ JUDGE_DIMENSIONS = (
     "decision_usefulness",
 )
 JUDGE_MAX_SEARCH_CALLS = 4
+SEARCH_DISCOVERY_NAME_RE = re.compile(
+    r"(?:^|[_:./-])(?:search|search_query|web_search|discover|discovery)"
+    r"(?:$|[_:./-])",
+    re.IGNORECASE,
+)
 NONFATAL_DIAGNOSTICS = (
     "Skill descriptions were shortened to fit the 2% skills context budget.",
 )
@@ -337,6 +342,32 @@ def run_streamed_process(
     return returncode, timed_out, time.monotonic() - started
 
 
+def search_discovery_key(item: dict[str, Any]) -> str:
+    """Identify search/discovery tool calls from stable transcript fields."""
+    item_type = str(item.get("type") or "")
+    if item_type == "web_search":
+        return item_type
+
+    labels: list[str] = []
+    for key in ("name", "tool_name", "method", "server", "title"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            labels.append(value.strip())
+    tool = item.get("tool")
+    if isinstance(tool, str) and tool.strip():
+        labels.append(tool.strip())
+    elif isinstance(tool, dict):
+        for key in ("name", "method", "server"):
+            value = tool.get(key)
+            if isinstance(value, str) and value.strip():
+                labels.append(value.strip())
+
+    if item_type not in {"mcp_tool_call", "dynamic_tool_call", "collaboration_tool_call"}:
+        return ""
+    label = " ".join(labels)
+    return label if label and SEARCH_DISCOVERY_NAME_RE.search(label) else ""
+
+
 def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
     usage = {
         "input_tokens": 0,
@@ -347,6 +378,7 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
     }
     thread_id = ""
     item_types: Counter[str] = Counter()
+    search_discovery_items: Counter[str] = Counter()
     errors: list[str] = []
     warnings: list[str] = []
     malformed = 0
@@ -368,6 +400,8 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
             "item_types": {},
             "tool_item_types": {},
             "total_tool_calls": 0,
+            "search_discovery_items": {},
+            "search_discovery_calls": 0,
             "errors": ["transcript missing"],
             "warnings": [],
             "malformed_jsonl_lines": 0,
@@ -399,6 +433,9 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
         if event.get("type") == "item.completed" and isinstance(item, dict):
             item_type = str(item.get("type") or "unknown")
             item_types[item_type] += 1
+            search_key = search_discovery_key(item)
+            if search_key:
+                search_discovery_items[search_key] += 1
             if item_type == "error":
                 record_diagnostic(str(item.get("message") or "unknown Codex error"))
     tool_item_types = {
@@ -415,6 +452,8 @@ def parse_jsonl_metrics(path: Path) -> dict[str, Any]:
         "item_types": dict(sorted(item_types.items())),
         "tool_item_types": tool_item_types,
         "total_tool_calls": sum(tool_item_types.values()),
+        "search_discovery_items": dict(sorted(search_discovery_items.items())),
+        "search_discovery_calls": sum(search_discovery_items.values()),
         "errors": errors,
         "warnings": warnings,
         "malformed_jsonl_lines": malformed,
@@ -717,6 +756,7 @@ def archive_run_attempt(run_dir: Path) -> Path | None:
 
 
 def successful_execution(run_dir: Path) -> bool:
+    """Return true only for an intact process result with a usable report."""
     execution_path = run_dir / "execution.json"
     if not execution_path.is_file():
         return False
@@ -732,7 +772,25 @@ def successful_execution(run_dir: Path) -> bool:
     execution["transcript_metrics"] = metrics
     execution["failure_kind"] = failure_kind
     write_json(execution_path, execution)
-    return failure_kind is None
+    if failure_kind is not None:
+        return False
+
+    primary_path, corpus = primary_report(run_dir / "outputs")
+    if primary_path is None or not corpus.strip():
+        return False
+    grading_path = run_dir / "grading.json"
+    if not grading_path.is_file():
+        return False
+    try:
+        grading = load_json(grading_path)
+    except BenchmarkError:
+        return False
+    summary = grading.get("summary") if isinstance(grading, dict) else None
+    return (
+        isinstance(summary, dict)
+        and isinstance(summary.get("total"), int)
+        and int(summary["total"]) > 0
+    )
 
 
 def run_one(
@@ -838,6 +896,25 @@ def run_one(
     }
 
 
+def stable_execution_order(
+    evals: Sequence[dict[str, Any]],
+    candidate_identity: str,
+) -> list[tuple[dict[str, Any], str]]:
+    """Return a deterministic, balanced arm order without always leading with the skill."""
+    ordered: list[tuple[dict[str, Any], str]] = []
+    for eval_case in evals:
+        configurations = list(CONFIGURATIONS)
+        seed = int(
+            hashlib.sha256(
+                f"{candidate_identity}:{eval_case['name']}:arm-order".encode()
+            ).hexdigest()[:16],
+            16,
+        )
+        random.Random(seed).shuffle(configurations)
+        ordered.extend((eval_case, configuration) for configuration in configurations)
+    return ordered
+
+
 def run_benchmark(args: argparse.Namespace) -> Path:
     repo_root = args.repo_root.resolve()
     ensure_clean_repo(repo_root)
@@ -873,6 +950,22 @@ def run_benchmark(args: argparse.Namespace) -> Path:
             "codex_home_changed": False,
         },
     }
+    all_jobs = [
+        (eval_case, configuration)
+        for eval_case in evals
+        for configuration in CONFIGURATIONS
+    ]
+    execution_jobs = stable_execution_order(
+        evals,
+        str(current_metadata["candidate_skill_git_tree"]),
+    )
+    current_metadata["arm_execution_order"] = [
+        {
+            "eval_name": str(eval_case["name"]),
+            "configuration": configuration,
+        }
+        for eval_case, configuration in execution_jobs
+    ]
     metadata_path = iteration / "run_metadata.json"
     if args.resume:
         if not metadata_path.is_file():
@@ -896,17 +989,16 @@ def run_benchmark(args: argparse.Namespace) -> Path:
                 "repo_commit": current_metadata["repo_commit"],
             }
         )
+        metadata.setdefault(
+            "arm_execution_order",
+            current_metadata["arm_execution_order"],
+        )
         write_json(metadata_path, metadata)
     else:
         metadata = current_metadata
         write_json(metadata_path, metadata)
     for eval_case in evals:
         prepare_eval_inputs(iteration, eval_case)
-    all_jobs = [
-        (eval_case, configuration)
-        for eval_case in evals
-        for configuration in CONFIGURATIONS
-    ]
     previous_results: dict[tuple[str, str], dict[str, Any]] = {}
     results_path = iteration / "run_results.json"
     if args.resume and results_path.is_file():
@@ -920,7 +1012,7 @@ def run_benchmark(args: argparse.Namespace) -> Path:
                 and item.get("configuration")
             }
     jobs: list[tuple[dict[str, Any], str]] = []
-    for eval_case, configuration in all_jobs:
+    for eval_case, configuration in execution_jobs:
         run_dir = iteration / str(eval_case["name"]) / configuration
         if args.resume and successful_execution(run_dir):
             continue
@@ -1157,6 +1249,28 @@ def judge_score_contract_valid(comparison: dict[str, Any]) -> bool:
     return True
 
 
+def judge_run_contract_valid(result: dict[str, Any]) -> bool:
+    """Apply deterministic process, transcript, search-budget, and score gates."""
+    metrics = result.get("transcript_metrics")
+    errors = metrics.get("errors") if isinstance(metrics, dict) else None
+    search_calls = (
+        int(metrics.get("search_discovery_calls") or 0)
+        if isinstance(metrics, dict)
+        else JUDGE_MAX_SEARCH_CALLS + 1
+    )
+    return (
+        not result.get("error")
+        and result.get("returncode") == 0
+        and result.get("timed_out") is False
+        and result.get("winner") in {"A", "B", "TIE"}
+        and result.get("score_contract_valid") is True
+        and isinstance(errors, list)
+        and not errors
+        and search_calls <= JUDGE_MAX_SEARCH_CALLS
+        and result.get("search_budget_passed") is True
+    )
+
+
 def judge_one(
     *,
     iteration: Path,
@@ -1210,6 +1324,8 @@ def judge_one(
         comparison = loaded if isinstance(loaded, dict) else {}
     winner = str(comparison.get("winner") or "")
     winner_configuration = mapping.get(winner) if winner in {"A", "B"} else "TIE"
+    transcript_metrics = parse_jsonl_metrics(transcript_path)
+    search_calls = int(transcript_metrics.get("search_discovery_calls") or 0)
     result = {
         "eval_id": eval_case["id"],
         "eval_name": eval_case["name"],
@@ -1221,7 +1337,10 @@ def judge_one(
         "duration_seconds": round(duration, 6),
         "comparison": comparison,
         "score_contract_valid": judge_score_contract_valid(comparison),
-        "transcript_metrics": parse_jsonl_metrics(transcript_path),
+        "transcript_metrics": transcript_metrics,
+        "judge_search_calls": search_calls,
+        "judge_search_limit": JUDGE_MAX_SEARCH_CALLS,
+        "search_budget_passed": search_calls <= JUDGE_MAX_SEARCH_CALLS,
     }
     write_json(judge_dir / "unblinded.json", result)
     return result
@@ -1266,15 +1385,14 @@ def judge_benchmark(args: argparse.Namespace) -> Path:
                 result = {"eval_name": eval_name, "error": str(exc)}
             results.append(result)
             print(json.dumps(result, ensure_ascii=False), flush=True)
+    results.sort(
+        key=lambda result: (
+            int(result.get("eval_id") or 10**9),
+            str(result.get("eval_name") or ""),
+        )
+    )
     write_json(iteration / "judge_results.json", results)
-    failures = [
-        result
-        for result in results
-        if result.get("error")
-        or result.get("returncode") != 0
-        or result.get("winner") not in {"A", "B", "TIE"}
-        or result.get("score_contract_valid") is not True
-    ]
+    failures = [result for result in results if not judge_run_contract_valid(result)]
     if failures:
         raise BenchmarkError(
             f"{len(failures)} judge run(s) failed; inspect {iteration / 'judge_results.json'}"
@@ -1503,8 +1621,18 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--judge-model", default="")
     parser.add_argument("--timeout-seconds", type=int, default=1800)
     parser.add_argument("--judge-timeout-seconds", type=int, default=600)
-    parser.add_argument("--max-workers", type=int, default=6)
-    parser.add_argument("--judge-workers", type=int, default=3)
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=1,
+        help="benchmark arm concurrency; default 1 avoids shared-account contention",
+    )
+    parser.add_argument(
+        "--judge-workers",
+        type=int,
+        default=1,
+        help="blind-judge concurrency; default 1 keeps search and usage budgets isolated",
+    )
     parser.add_argument(
         "--resume",
         action="store_true",

@@ -7,6 +7,7 @@ import io
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -1226,6 +1227,102 @@ class ResearchCtlTests(unittest.TestCase):
             )
             result = run_ctl("eval", "--session", str(session))
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_claim_id_alone_does_not_satisfy_verified_coverage(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": "The actual material conclusion is forty-two.",
+            "claim_scope": "synthesized",
+            "source_ids": ["src_001"],
+        }
+        body = "clm_001 [source](https://example.org/source)"
+        self.assertFalse(researchctl._claim_text_present(claim, body))
+        self.assertFalse(
+            researchctl._verified_claim_present(
+                claim,
+                body,
+                {"src_001": "https://example.org/source"},
+            )
+        )
+
+    def test_attributed_coverage_requires_material_result_content(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": (
+                "Article 53 directly requires technical documentation and "
+                "training-content disclosure."
+            ),
+            "claim_scope": "attributed",
+            "attribution": "Article 53",
+            "source_ids": ["src_001"],
+        }
+        source_map = {"src_001": "https://example.org/article-53"}
+        authority_only = (
+            "Article 53 is discussed here, but this paragraph only describes "
+            "the enforcement authority. "
+            "[Article 53](https://example.org/article-53)"
+        )
+        self.assertFalse(
+            researchctl._verified_claim_present(
+                claim,
+                authority_only,
+                source_map,
+            )
+        )
+        matching = (
+            "Article 53 requires technical documentation and disclosure of "
+            "training-content information. "
+            "[Article 53](https://example.org/article-53)"
+        )
+        self.assertTrue(
+            researchctl._verified_claim_present(
+                claim,
+                matching,
+                source_map,
+            )
+        )
+
+    def test_attributed_generalization_uses_material_content_not_claim_id(self):
+        claim = {
+            "claim_id": "clm_001",
+            "text": "The named trial reported lower pain and better recovery through POD3.",
+            "claim_scope": "attributed",
+            "attribution": "The named trial",
+            "source_ids": ["src_001"],
+        }
+        source_map = {"src_001": "https://example.org/trial"}
+        generalized = (
+            "Pain was lower and recovery was better through POD3. "
+            "[study](https://example.org/trial)"
+        )
+        self.assertTrue(
+            researchctl._attributed_claim_generalized(
+                claim,
+                generalized,
+                source_map,
+            )
+        )
+        self.assertFalse(
+            researchctl._attributed_claim_generalized(
+                claim,
+                "clm_001 [study](https://example.org/trial)",
+                source_map,
+            )
+        )
+
+    def test_atomic_write_text_uses_unique_temp_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "shared.json"
+            payloads = [str(index) * 5000 for index in range(24)]
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                list(
+                    executor.map(
+                        lambda payload: researchctl.atomic_write_text(path, payload),
+                        payloads,
+                    )
+                )
+            self.assertIn(path.read_text(encoding="utf-8"), payloads)
+            self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
 
 
 if __name__ == "__main__":

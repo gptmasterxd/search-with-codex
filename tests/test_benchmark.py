@@ -70,6 +70,8 @@ class BenchmarkHarnessTests(unittest.TestCase):
             self.assertEqual(metrics["item_types"], {"web_search": 1})
             self.assertEqual(metrics["tool_item_types"], {"web_search": 1})
             self.assertEqual(metrics["total_tool_calls"], 1)
+            self.assertEqual(metrics["search_discovery_calls"], 1)
+            self.assertEqual(metrics["search_discovery_items"], {"web_search": 1})
             self.assertEqual(metrics["warnings"], [])
 
     def test_blind_mapping_is_stable_and_balanced(self) -> None:
@@ -256,6 +258,118 @@ class BenchmarkHarnessTests(unittest.TestCase):
                 list(executor.map(lambda value: benchmark.write_json(path, value), payloads))
             self.assertIn(json.loads(path.read_text(encoding="utf-8")), payloads)
             self.assertEqual(list(path.parent.glob(f".{path.name}.*.tmp")), [])
+
+    def test_mcp_search_discovery_call_is_counted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "events.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "type": "item.completed",
+                        "item": {
+                            "type": "mcp_tool_call",
+                            "name": "search_query",
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            metrics = benchmark.parse_jsonl_metrics(path)
+            self.assertEqual(metrics["search_discovery_calls"], 1)
+            self.assertEqual(metrics["search_discovery_items"], {"search_query": 1})
+
+    def test_judge_run_contract_enforces_search_budget_and_errors(self) -> None:
+        dimensions = {
+            "correctness": 4,
+            "completeness": 4,
+            "evidence_quality": 4,
+            "uncertainty_handling": 4,
+            "decision_usefulness": 4,
+            "overall": 4,
+        }
+        result = {
+            "returncode": 0,
+            "timed_out": False,
+            "winner": "A",
+            "score_contract_valid": True,
+            "comparison": {"scores": {"A": dimensions, "B": dimensions}},
+            "transcript_metrics": {
+                "errors": [],
+                "search_discovery_calls": benchmark.JUDGE_MAX_SEARCH_CALLS,
+            },
+            "search_budget_passed": True,
+        }
+        self.assertTrue(benchmark.judge_run_contract_valid(result))
+        over_budget = {
+            **result,
+            "transcript_metrics": {
+                "errors": [],
+                "search_discovery_calls": benchmark.JUDGE_MAX_SEARCH_CALLS + 1,
+            },
+            "search_budget_passed": False,
+        }
+        self.assertFalse(benchmark.judge_run_contract_valid(over_budget))
+        transcript_error = {
+            **result,
+            "transcript_metrics": {
+                "errors": ["judge search failed"],
+                "search_discovery_calls": 1,
+            },
+        }
+        self.assertFalse(benchmark.judge_run_contract_valid(transcript_error))
+
+    def test_successful_execution_requires_report_and_grading(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            benchmark.write_json(
+                run_dir / "execution.json",
+                {"returncode": 0, "timed_out": False},
+            )
+            (run_dir / "transcript.jsonl").write_text(
+                json.dumps(
+                    {
+                        "type": "turn.completed",
+                        "usage": {"input_tokens": 1, "output_tokens": 1},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(benchmark.successful_execution(run_dir))
+
+            outputs = run_dir / "outputs"
+            outputs.mkdir()
+            (outputs / "final.md").write_text("usable report", encoding="utf-8")
+            self.assertFalse(benchmark.successful_execution(run_dir))
+
+            benchmark.write_json(
+                run_dir / "grading.json",
+                {"summary": {"passed": 1, "failed": 0, "total": 1, "pass_rate": 1.0}},
+            )
+            self.assertTrue(benchmark.successful_execution(run_dir))
+
+    def test_stable_execution_order_is_deterministic_and_balanced(self) -> None:
+        evals = benchmark.load_evals(ROOT / "benchmarks" / "evals.json")
+        first = benchmark.stable_execution_order(evals, "candidate-tree")
+        second = benchmark.stable_execution_order(evals, "candidate-tree")
+        self.assertEqual(first, second)
+        for eval_case in evals:
+            configurations = [
+                configuration
+                for candidate, configuration in first
+                if candidate["id"] == eval_case["id"]
+            ]
+            self.assertEqual(set(configurations), set(benchmark.CONFIGURATIONS))
+            self.assertEqual(len(configurations), len(benchmark.CONFIGURATIONS))
+
+    def test_worker_defaults_serialize_shared_account_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            args = benchmark.build_parser().parse_args(
+                ["run", "--workspace", temp]
+            )
+            self.assertEqual(args.max_workers, 1)
+            self.assertEqual(args.judge_workers, 1)
 
 
 if __name__ == "__main__":

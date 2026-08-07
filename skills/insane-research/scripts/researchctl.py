@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import unicodedata
 from collections import Counter, OrderedDict
 from datetime import datetime, timezone
@@ -69,10 +70,22 @@ def slugify(value: str, max_length: int = 64) -> str:
 
 
 def atomic_write_text(path: Path, text: str) -> None:
+    """Atomically replace one text file without sharing a fixed temp path."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(text, encoding="utf-8")
-    os.replace(temp, path)
+    descriptor, temp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temp = Path(temp_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
 
 
 def atomic_write_json(path: Path, data: Any) -> None:
@@ -1263,10 +1276,7 @@ def _ngrams(text: str, size: int = 6) -> set[str]:
 
 
 def _claim_text_present(claim: Mapping[str, Any], body: str) -> bool:
-    """Detect whether a claim itself appears; do not infer this from shared source IDs."""
-    claim_id = str(claim.get("claim_id") or "")
-    if claim_id and claim_id in body:
-        return True
+    """Detect claim content; internal claim IDs are never evidence of coverage."""
     claim_text = str(claim.get("text") or "")
     normalized_claim = _normalize_for_match(claim_text)
     normalized_body = _normalize_for_match(body)
@@ -1338,6 +1348,87 @@ def _attribution_present(attribution: str, body: str) -> bool:
     return any(anchor and anchor in normalized_body for anchor in anchors)
 
 
+_ATTRIBUTED_CONTENT_CONCEPTS = (
+    ("pain", "통증"),
+    ("opioid", "오피오이드"),
+    ("recovery", "회복"),
+    ("mobility", "walking", "gait", "function", "보행", "기능"),
+    ("strength", "motor", "근력"),
+    ("fall", "falls", "낙상"),
+    ("infection", "감염"),
+    ("complication", "adverse", "합병증", "이상반응"),
+    ("risk", "위험"),
+    ("documentation", "document", "문서"),
+    ("disclosure", "disclose", "공개", "공시"),
+    ("require", "requires", "required", "obligation", "must", "요구", "의무"),
+    ("increase", "higher", "improved", "increase", "높", "증가", "개선", "향상"),
+    ("decrease", "lower", "reduced", "decrease", "낮", "감소", "저하"),
+    ("effective", "effect", "효과"),
+    ("mortality", "death", "사망"),
+    ("cost", "비용"),
+)
+
+
+def _meaningful_content_anchors(text: str, excluded_text: str = "") -> set[str]:
+    """Return stable non-attribution tokens suitable for local content matching."""
+    excluded = {
+        _normalize_for_match(token)
+        for token in re.findall(
+            r"[0-9a-z][0-9a-z._/-]*|[가-힣]{2,}",
+            unicodedata.normalize("NFKC", excluded_text).lower(),
+        )
+    }
+    anchors: set[str] = set()
+    for token in re.findall(
+        r"[0-9a-z][0-9a-z._/-]*|[가-힣]{2,}",
+        unicodedata.normalize("NFKC", text).lower(),
+    ):
+        normalized = _normalize_for_match(token)
+        if not normalized or normalized in excluded:
+            continue
+        if token in _ATTRIBUTION_STOPWORDS or token == "al":
+            continue
+        if token.isdigit() and len(token) == 4 and 1900 <= int(token) <= 2100:
+            continue
+        if len(normalized) >= 5 or any(char.isdigit() for char in normalized):
+            anchors.add(normalized)
+    return anchors
+
+
+def _content_concepts(text: str) -> set[int]:
+    normalized = _normalize_for_match(REPORT_URL_RE.sub(" ", text))
+    return {
+        index
+        for index, terms in enumerate(_ATTRIBUTED_CONTENT_CONCEPTS)
+        if any(_normalize_for_match(term) in normalized for term in terms)
+    }
+
+
+def _attributed_content_present(claim: Mapping[str, Any], body: str) -> bool:
+    """Require material claim content in addition to authority and citation."""
+    if _claim_text_present(claim, body):
+        return True
+
+    claim_text = str(claim.get("text") or "")
+    attribution = str(claim.get("attribution") or "")
+    visible_body = REPORT_URL_RE.sub(" ", body)
+    normalized_body = _normalize_for_match(visible_body)
+    anchors = _meaningful_content_anchors(claim_text, attribution)
+    exact_hits = {anchor for anchor in anchors if anchor in normalized_body}
+    shared_concepts = _content_concepts(claim_text) & _content_concepts(visible_body)
+    numeric_hits = {anchor for anchor in exact_hits if any(char.isdigit() for char in anchor)}
+
+    if len(exact_hits) >= 2:
+        return True
+    if len(shared_concepts) >= 2:
+        return True
+    if shared_concepts and numeric_hits:
+        return True
+    if anchors and len(anchors) <= 2 and exact_hits == anchors:
+        return True
+    return False
+
+
 def _chunk_uses_sources(
     chunk: str,
     source_ids: set[str],
@@ -1371,6 +1462,8 @@ def _verified_claim_present(
             attribution = str(claim.get("attribution") or "")
             if not _attribution_present(attribution, chunk):
                 continue
+            if not _attributed_content_present(claim, chunk):
+                continue
             return True
         if _claim_text_present(claim, chunk):
             return True
@@ -1391,7 +1484,7 @@ def _attributed_claim_generalized(
     source_ids = {str(value) for value in claim.get("source_ids") or []}
     chunks = [chunk for chunk in re.split(r"\n\s*\n", body) if chunk.strip()]
     for chunk in chunks:
-        if not _claim_text_present(claim, chunk):
+        if not _attributed_content_present(claim, chunk):
             continue
         if not _chunk_uses_sources(chunk, source_ids, source_url_by_id):
             continue

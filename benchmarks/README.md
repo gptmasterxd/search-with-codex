@@ -36,6 +36,13 @@ python3 benchmarks/benchmark.py report \
 `all` runs the three stages in order. Keeping them separate makes interruption,
 inspection, and selective re-grading practical.
 
+Benchmark arms and blind judges run serially by default (`--max-workers 1`,
+`--judge-workers 1`) so the two configurations do not compete for one account's
+usage window or distort wall time through concurrent throttling. The harness
+uses a stable per-evaluation arm order derived from the candidate skill tree,
+records that order in `run_metadata.json`, and still permits an explicit higher
+worker count for exploratory local runs.
+
 If a Codex process is interrupted by an account usage limit, timeout, or other
 external failure, resume the same iteration without rerunning successful arms:
 

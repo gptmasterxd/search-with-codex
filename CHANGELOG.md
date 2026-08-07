@@ -27,6 +27,12 @@
 
 ### Fixed
 
+- Closed report-audit bypasses where an internal claim ID or an authority name plus link could count as material claim coverage without the claim content.
+- Enforced blind-judge transcript cleanliness and the four-call search/discovery budget as deterministic benchmark gates.
+- Required resumable benchmark arms to retain a non-empty primary report and valid grading artifact, not merely a zero process exit.
+- Serialized benchmark and judge execution by default with a stable balanced arm order to reduce shared-account contention and fixed-order bias.
+- Made research session atomic writes use unique same-directory temporary files.
+
 - Removed concurrent patch contention on one shared `agent_returns.json`.
 - Documented supported wait timeouts and bounded recovery from pre-thread spawn failures.
 - Required the research-plan template to be read before patching.
