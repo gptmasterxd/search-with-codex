@@ -57,8 +57,8 @@ JUDGE_DIMENSIONS = (
 )
 JUDGE_MAX_SEARCH_CALLS = 4
 SEARCH_DISCOVERY_NAME_RE = re.compile(
-    r"(?:^|[_:./-])(?:search|search_query|web_search|discover|discovery)"
-    r"(?:$|[_:./-])",
+    r"(?:^|[^0-9a-z])(?:search|search_query|web_search|discover|discovery)"
+    r"(?:$|[^0-9a-z])",
     re.IGNORECASE,
 )
 NONFATAL_DIAGNOSTICS = (
@@ -900,18 +900,29 @@ def stable_execution_order(
     evals: Sequence[dict[str, Any]],
     candidate_identity: str,
 ) -> list[tuple[dict[str, Any], str]]:
-    """Return a deterministic, balanced arm order without always leading with the skill."""
-    ordered: list[tuple[dict[str, Any], str]] = []
-    for eval_case in evals:
-        configurations = list(CONFIGURATIONS)
-        seed = int(
+    """Return a deterministic eval order with counterbalanced arm leadership."""
+    randomizer = random.Random(
+        int(
             hashlib.sha256(
-                f"{candidate_identity}:{eval_case['name']}:arm-order".encode()
+                f"{candidate_identity}:benchmark-arm-order".encode()
             ).hexdigest()[:16],
             16,
         )
-        random.Random(seed).shuffle(configurations)
-        ordered.extend((eval_case, configuration) for configuration in configurations)
+    )
+    eval_order = list(evals)
+    randomizer.shuffle(eval_order)
+    first_leader = randomizer.choice(CONFIGURATIONS)
+    second_leader = next(
+        configuration
+        for configuration in CONFIGURATIONS
+        if configuration != first_leader
+    )
+
+    ordered: list[tuple[dict[str, Any], str]] = []
+    for index, eval_case in enumerate(eval_order):
+        lead = first_leader if index % 2 == 0 else second_leader
+        follow = second_leader if lead == first_leader else first_leader
+        ordered.extend(((eval_case, lead), (eval_case, follow)))
     return ordered
 
 
@@ -1611,6 +1622,13 @@ def benchmark_markdown(benchmark: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def positive_worker_count(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("worker count must be at least 1")
+    return parsed
+
+
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repo-root", type=Path, default=ROOT)
     parser.add_argument("--evals", type=Path, default=DEFAULT_EVALS)
@@ -1623,13 +1641,13 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--judge-timeout-seconds", type=int, default=600)
     parser.add_argument(
         "--max-workers",
-        type=int,
+        type=positive_worker_count,
         default=1,
         help="benchmark arm concurrency; default 1 avoids shared-account contention",
     )
     parser.add_argument(
         "--judge-workers",
-        type=int,
+        type=positive_worker_count,
         default=1,
         help="blind-judge concurrency; default 1 keeps search and usage budgets isolated",
     )

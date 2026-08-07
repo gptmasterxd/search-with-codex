@@ -349,11 +349,16 @@ class BenchmarkHarnessTests(unittest.TestCase):
             )
             self.assertTrue(benchmark.successful_execution(run_dir))
 
-    def test_stable_execution_order_is_deterministic_and_balanced(self) -> None:
+    def test_stable_execution_order_is_deterministic_and_counterbalanced(self) -> None:
         evals = benchmark.load_evals(ROOT / "benchmarks" / "evals.json")
         first = benchmark.stable_execution_order(evals, "candidate-tree")
         second = benchmark.stable_execution_order(evals, "candidate-tree")
         self.assertEqual(first, second)
+        self.assertEqual(
+            {candidate["id"] for candidate, _configuration in first},
+            {item["id"] for item in evals},
+        )
+        leaders: list[str] = []
         for eval_case in evals:
             configurations = [
                 configuration
@@ -362,6 +367,9 @@ class BenchmarkHarnessTests(unittest.TestCase):
             ]
             self.assertEqual(set(configurations), set(benchmark.CONFIGURATIONS))
             self.assertEqual(len(configurations), len(benchmark.CONFIGURATIONS))
+            leaders.append(configurations[0])
+        counts = {leader: leaders.count(leader) for leader in benchmark.CONFIGURATIONS}
+        self.assertLessEqual(abs(counts["with_skill"] - counts["without_skill"]), 1)
 
     def test_worker_defaults_serialize_shared_account_runs(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -370,6 +378,17 @@ class BenchmarkHarnessTests(unittest.TestCase):
             )
             self.assertEqual(args.max_workers, 1)
             self.assertEqual(args.judge_workers, 1)
+
+    def test_worker_counts_must_be_positive(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaises(SystemExit):
+                benchmark.build_parser().parse_args(
+                    ["run", "--workspace", temp, "--max-workers", "0"]
+                )
+            with self.assertRaises(SystemExit):
+                benchmark.build_parser().parse_args(
+                    ["judge", "--workspace", temp, "--judge-workers", "-1"]
+                )
 
 
 if __name__ == "__main__":
